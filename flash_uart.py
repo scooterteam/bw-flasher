@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #! -*- coding: utf-8 -*-
 #
-# BW Patcher
+# BW Flasher
 # Copyright (C) 2024 ScooterTeam
 #
 # This program is free software: you can redistribute it and/or modify

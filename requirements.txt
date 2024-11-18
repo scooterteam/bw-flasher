@@ -1,0 +1,11 @@
+altgraph==0.17.4
+packaging==24.2
+pyinstaller==6.11.0
+pyinstaller-hooks-contrib==2024.9
+pyserial==3.5
+PySide6==6.8.0.2
+PySide6_Addons==6.8.0.2
+PySide6_Essentials==6.8.0.2
+setuptools==75.3.0
+shiboken6==6.8.0.2
+tqdm==4.67.0

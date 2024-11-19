@@ -353,13 +353,17 @@ class DFU:
 
 
 if __name__ == "__main__":
-    from argparse import ArgumentParser
+    import argparse
     from tqdm import tqdm
 
-    parser = ArgumentParser()
+    default_port = "COM1" if os.name == "nt" else "/dev/ttyUSB0"
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
     parser.add_argument("fw_file")
     parser.add_argument("--simulation", action='store_true')
     parser.add_argument("--debug", action='store_true', help="Enable debug output")
+    parser.add_argument("--port", default=default_port, help="Serial port")
     args = parser.parse_args()
 
     with tqdm(total=100, desc="Flashing") as pbar:
@@ -372,7 +376,7 @@ if __name__ == "__main__":
             pbar.refresh()
 
         updater = DFU(
-            tty_port="/dev/ttyUSB0",
+            tty_port=args.port,
             simulation=args.simulation,
             debug=args.debug,
             log_callback=log_callback,

@@ -17,6 +17,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
+
 import serial.tools.list_ports
 import sys
 import os
@@ -46,7 +47,11 @@ def resource_path(relative_path):
 
 def get_serial_ports():
     ports = serial.tools.list_ports.comports()
-    return [port[0] for port in ports] if ports else []
+    if OS == "Windows":
+        return [port[0] for port in ports] if ports else []
+    else:
+        prefix = "/dev/ttyUSB" if OS == "Linux" else "/dev/tty.usb"
+        return [port[0] for port in ports if port[0].startswith(prefix)] if ports else []
 
 
 class FirmwareUpdateThread(QThread):

@@ -17,7 +17,7 @@
 # You should have received a copy of the GNU Affero General Public License
 # along with this program.  If not, see <https://www.gnu.org/licenses/>.
 #
-
+import serial.tools.list_ports
 import sys
 import os
 import platform
@@ -42,6 +42,11 @@ def resource_path(relative_path):
         base_path = os.path.abspath(".")
 
     return os.path.join(base_path, relative_path)
+
+
+def get_serial_ports():
+    ports = serial.tools.list_ports.comports()
+    return [port[0] for port in ports] if ports else []
 
 
 class FirmwareUpdateThread(QThread):
@@ -110,9 +115,9 @@ class FirmwareUpdateGUI(QWidget):
         layout_h = QHBoxLayout()
         self.com_label = QLabel("Set Serial Port:")
         layout_h.addWidget(self.com_label)
-        self.com_port = QLineEdit(
-            "COM1" if OS == 'Windows' else "/dev/ttyUSB0"
-        )
+        self.com_port = QComboBox()
+        self.com_port.setEditable(True)
+        self.com_port.addItems(get_serial_ports())
         layout_h.addWidget(self.com_port)
         layout.addLayout(layout_h)
 
@@ -205,7 +210,7 @@ class FirmwareUpdateGUI(QWidget):
 
         simulation = self.simulation_checkbox.isChecked()
         debug = self.debug_checkbox.isChecked()
-        com_port = self.com_port.text()
+        com_port = self.com_port.currentText()
 
         self.update_thread = FirmwareUpdateThread(com_port, firmware_file, simulation, debug)
         self.update_thread.progress_signal.connect(self.update_progress)

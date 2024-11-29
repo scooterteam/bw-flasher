@@ -5,6 +5,7 @@ Flashing Brightway controllers using the UART.
 ```bash
 pip install -r requirements.txt
 ```
+It's recommended to use a virtual environment like `venv` for installation.
 
 ## Usage
 
@@ -23,14 +24,17 @@ options:
 ```
 
 ### GUI
+Run the flasher GUI with this command:
 
 ```bash
 python flasher.py
 ```
 
 ## Deployment
+You can package the project as a standalone executable using the following command:
+
 ```bash
-pyinstaller --name="bwflasher" -i app.ico --add-data "chiptune.mp3:." --add-data "app.ico:." --windowed --onefile --strip flasher.py
+pyinstaller --name="bwflasher" -i app.ico --add-data "chiptune.mp3:." --add-data "app.ico:." --windowed --onefile flasher.py
 ```
 
 ## Disclaimer

@@ -30,6 +30,7 @@ jobs:
           path: release_url.txt
 
   buildgui:
+    permissions: write-all
     name: Build GUI executables
     needs: release
     runs-on: ${{ matrix.os }}

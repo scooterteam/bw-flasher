@@ -26,7 +26,7 @@ from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QProgressBar, QFileDialog, QCheckBox, QTextEdit, QStatusBar, QSpacerItem, QSizePolicy, QComboBox
 )
-from PySide6.QtGui import QPixmap, QPalette
+from PySide6.QtGui import QPixmap, QPalette, QIcon
 from PySide6.QtCore import Qt, QThread, Signal, QUrl, QTimer
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 from flash_uart import DFU
@@ -93,9 +93,11 @@ class FirmwareUpdateGUI(QWidget):
         super().__init__()
 
         self.update_thread = None
+        self.flasher_debug = False
 
         self.setWindowTitle("BwFlasher")
         self.setGeometry(100, 100, 400, 300)
+        self.setWindowIcon(resource_path("app.ico"))
 
         self.setStyleSheet("QWidget { font-family: 'Courier New', monospace; font-size: 12pt; }")
 
@@ -202,7 +204,7 @@ class FirmwareUpdateGUI(QWidget):
             self,
             "Select Firmware File",
             "",
-            "All Files (*);;BIN Files (*.bin)"
+            "BIN Files (*.bin);;All Files (*)"
         )
         if file:
             self.file_path.setText(file)
@@ -214,10 +216,10 @@ class FirmwareUpdateGUI(QWidget):
             return
 
         simulation = self.simulation_checkbox.isChecked()
-        debug = self.debug_checkbox.isChecked()
+        self.flasher_debug = self.debug_checkbox.isChecked()
         com_port = self.com_port.currentText()
 
-        self.update_thread = FirmwareUpdateThread(com_port, firmware_file, simulation, debug)
+        self.update_thread = FirmwareUpdateThread(com_port, firmware_file, simulation, self.flasher_debug)
         self.update_thread.progress_signal.connect(self.update_progress)
         self.update_thread.debug_signal.connect(self.debug_log)
         self.update_thread.status_signal.connect(self.update_status)
@@ -231,7 +233,7 @@ class FirmwareUpdateGUI(QWidget):
             self.start_button.setEnabled(True)
 
     def update_status(self, message):
-        if self.update_thread.debug:
+        if self.flasher_debug:
             self.status_bar.showMessage(message, 2000)
         else:
             self.log_output.append(message)

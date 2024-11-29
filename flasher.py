@@ -97,7 +97,7 @@ class FirmwareUpdateGUI(QWidget):
 
         self.setWindowTitle("BwFlasher")
         self.setGeometry(100, 100, 400, 300)
-        self.setWindowIcon(resource_path("app.ico"))
+        self.setWindowIcon(QIcon(resource_path("app.ico"))
 
         self.setStyleSheet("QWidget { font-family: 'Courier New', monospace; font-size: 12pt; }")
 

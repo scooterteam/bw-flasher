@@ -97,7 +97,7 @@ class FirmwareUpdateGUI(QWidget):
 
         self.setWindowTitle("BwFlasher")
         self.setGeometry(100, 100, 400, 300)
-        self.setWindowIcon(QIcon(resource_path("app.ico"))
+        self.setWindowIcon(QIcon(resource_path("app.ico")))
 
         self.setStyleSheet("QWidget { font-family: 'Courier New', monospace; font-size: 12pt; }")
 
@@ -112,7 +112,7 @@ class FirmwareUpdateGUI(QWidget):
         layout.addWidget(self.heading_label)
 
         layout_h = QHBoxLayout()
-        self.dev_label = QLabel("Set device:")
+        self.dev_label = QLabel("Set Device:")
         layout_h.addWidget(self.dev_label)
         self.dev_box = QComboBox()
         self.dev_box.addItem("4Pro2nd")

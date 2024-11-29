@@ -30,5 +30,5 @@ python flasher.py
 
 ## Deployment
 ```bash
-pyinstaller --name="bwflasher" -i app.ico --add-data "chiptune.mp3:." --windowed --onefile --strip flasher.py
+pyinstaller --name="bwflasher" -i app.ico --add-data "chiptune.mp3:." --add-data "app.ico:." --windowed --onefile --strip flasher.py
 ```

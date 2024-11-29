@@ -1,0 +1,92 @@
+name: Build
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  release:
+    name: Create release
+    runs-on: [ubuntu-latest]
+    steps:
+      - name: Create release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: ${{ github.ref }}
+          draft: false
+          prerelease: false
+      - name: Output Release URL File
+        run: echo "${{ steps.create_release.outputs.upload_url }}" > release_url.txt
+      - name: Save Release URL
+        uses: actions/upload-artifact@v4
+        with:
+          name: release_url
+          path: release_url.txt
+
+  buildgui:
+    name: Build GUI executables
+    needs: release
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            TARGET: linux
+            CMD_BUILD: pyinstaller -n bwflasher -i app.ico --add-data "chiptune.mp3:." --add-data "app.ico:." -w -F -s flasher.py
+            OUT_FILENAME: bwflasher
+            UPLOAD_FILENAME: bwflasher-${{ github.ref_name }}-linux-x64
+            ASSET_MIME: application/x-executable
+          - os: macos-latest
+            TARGET: macos
+            CMD_BUILD: >
+              pip install -U --no-cache-dir pillow &&
+              pyinstaller --target-arch universal2 -n bwflasher -i app.ico --add-data "chiptune.mp3:." --add-data "app.ico:." -w -s flasher.py &&
+              cd dist/ &&
+              zip -r9 bwflasher bwflasher.app/
+            OUT_FILENAME: bwflasher.zip
+            UPLOAD_FILENAME: bwflasher-${{ github.ref_name }}-macos-universal.zip
+            ASSET_MIME: application/zip
+          - os: windows-latest
+            TARGET: windows
+            CMD_BUILD: pyinstaller -n bwflasher -i app.ico --add-data "chiptune.mp3:." --add-data "app.ico:." -w -F flasher.py
+            OUT_FILENAME: bwflasher.exe
+            UPLOAD_FILENAME: bwflasher-${{ github.ref_name }}-windows-x64.exe
+            ASSET_MIME: application/vnd.microsoft.portable-executable
+    steps:
+      - uses: actions/checkout@v1
+      - name: Setup Python 3.12
+        uses: actions/setup-python@v2
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: |
+          python -m pip install --no-cache-dir --upgrade pip
+          pip install --no-cache-dir -U -r requirements.txt
+      - name: Build GUI with pyinstaller for ${{  matrix.TARGET  }}
+        run: ${{  matrix.CMD_BUILD  }}
+      - name: Load Release URL File from release job
+        uses: actions/download-artifact@v4
+        with:
+          name: release_url
+          path: release_artifact/
+      - name: Get Release filename and upload
+        id: get_release_info
+        shell: bash
+        run: |
+          value=`cat release_artifact/release_url.txt`
+          echo upload_url=$value >> $GITHUB_OUTPUT
+      - name: Upload Release Assets
+        id: upload-release-assets
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.get_release_info.outputs.upload_url }}
+          asset_path: ./dist/${{ matrix.OUT_FILENAME }}
+          asset_name: ${{ matrix.UPLOAD_FILENAME }}
+          asset_content_type: ${{ matrix.ASSET_MIME }}

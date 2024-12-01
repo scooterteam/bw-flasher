@@ -5,6 +5,9 @@ on:
     tags:
       - "v*"
 
+permissions:
+  contents: write
+
 jobs:
   release:
     permissions: write-all
@@ -47,7 +50,7 @@ jobs:
             TARGET: macos
             CMD_BUILD: >
               pip install -U --no-cache-dir pillow &&
-              pyinstaller --target-arch universal2 -n bwflasher -i app.ico --add-data "chiptune.mp3:." --add-data "app.ico:." -w -s flasher.py &&
+              pyinstaller --target-arch universal2 -n bwflasher -i app.ico --add-data "chiptune.mp3:." --add-data "app.ico:." -w -F -s flasher.py &&
               cd dist/ &&
               zip -r9 bwflasher bwflasher.app/
             OUT_FILENAME: bwflasher.zip

@@ -22,14 +22,15 @@ import serial.tools.list_ports
 import sys
 import os
 import platform
+from serial.serialutil import SerialException
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QProgressBar, QFileDialog, QCheckBox, QTextEdit, QStatusBar, QSpacerItem, QSizePolicy, QComboBox
+    QProgressBar, QFileDialog, QCheckBox, QTextEdit, QStatusBar, QComboBox, QMessageBox
 )
-from PySide6.QtGui import QPixmap, QPalette, QIcon
+from PySide6.QtGui import QPalette, QIcon
 from PySide6.QtCore import Qt, QThread, Signal, QUrl, QTimer
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
-from flash_uart import DFU
+from flash_uart import DFU, FlasherException
 
 OS = platform.system()
 
@@ -58,6 +59,7 @@ class FirmwareUpdateThread(QThread):
     progress_signal = Signal(int)
     status_signal = Signal(str)
     debug_signal = Signal(str)
+    exception_signal = Signal(list)
 
     def __init__(self, com_port, firmware_file, simulation, debug, parent=None):
         super().__init__(parent)
@@ -76,16 +78,23 @@ class FirmwareUpdateThread(QThread):
         def show_status(message):
             self.status_signal.emit(message)
 
-        updater = DFU(
-            tty_port=self.com_port,
-            simulation=self.simulation,
-            debug=self.debug,
-            status_callback=show_status,
-            log_callback=log_debug,
-            progress_callback=update_progress
-        )
-        updater.load_file(self.firmware_file)
-        updater.run()
+        try:
+            updater = DFU(
+                tty_port=self.com_port,
+                simulation=self.simulation,
+                debug=self.debug,
+                status_callback=show_status,
+                log_callback=log_debug,
+                progress_callback=update_progress
+            )
+            updater.load_file(self.firmware_file)
+            updater.run()
+        except FlasherException as e:
+            self.exception_signal.emit(["Flasher", str(e)])
+        except SerialException:
+            self.exception_signal.emit(["Serial", "The serial connection caused an error. Is your adapter connected?"])
+        except Exception as e:
+            self.exception_signal.emit(["Unknown", str(e)])
 
 
 class FirmwareUpdateGUI(QWidget):
@@ -96,11 +105,12 @@ class FirmwareUpdateGUI(QWidget):
         self.flasher_debug = False
 
         self.setWindowTitle("BwFlasher")
-        self.setGeometry(100, 100, 400, 300)
         self.setWindowIcon(QIcon(resource_path("app.ico")))
 
         self.setStyleSheet("QWidget { font-family: 'Courier New', monospace; font-size: 12pt; }")
+        self.disclaimer_messagebox()
 
+        self.setGeometry(100, 100, 400, 300)
         layout = QVBoxLayout()
 
         color = self.palette().color(QPalette.Highlight)
@@ -223,6 +233,8 @@ class FirmwareUpdateGUI(QWidget):
         self.update_thread.progress_signal.connect(self.update_progress)
         self.update_thread.debug_signal.connect(self.debug_log)
         self.update_thread.status_signal.connect(self.update_status)
+        self.update_thread.exception_signal.connect(self.exception_messagebox)
+        self.log_output.clear()
         self.update_thread.start()
 
         self.start_button.setEnabled(False)
@@ -240,6 +252,27 @@ class FirmwareUpdateGUI(QWidget):
 
     def debug_log(self, message):
         self.log_output.append(message)
+
+    def exception_messagebox(self, thread_signal: list):
+        error_type = thread_signal[0]
+        message = thread_signal[1]
+
+        error_dialog = QMessageBox(self)
+        error_dialog.setIcon(QMessageBox.Critical)
+        error_dialog.setWindowTitle(f"BwFlasher - {error_type} Error")
+        error_dialog.setText(message)
+        error_dialog.exec()
+        self.start_button.setEnabled(True)
+
+    def disclaimer_messagebox(self):
+        messagebox = QMessageBox(self)
+        messagebox.setIcon(QMessageBox.Warning)
+        messagebox.setWindowTitle("BwFlasher - Disclaimer")
+        messagebox.setText("Use of this tool is entirely at your own risk, as it is provided as-is without any "
+                           "guarantees or warranties. By using this tool, you agree not to use it for any commercial "
+                           "purposes, including but not limited to selling, distributing, or integrating it into any "
+                           "product or service intended for monetary gain.")
+        messagebox.exec()
 
 
 if __name__ == "__main__":

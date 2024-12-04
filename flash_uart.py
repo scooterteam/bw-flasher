@@ -27,6 +27,10 @@ from enum import Enum
 from keygen import sign_rand
 
 
+class FlasherException(Exception):
+    pass
+
+
 class DFUState(Enum):
     UID = "UID"
     VER_INIT = "VER_INIT"
@@ -159,7 +163,7 @@ class DFU:
                 self.emit_state(f"{self.state} -> Sending 'get_ver'")
                 self.get_ver()
             else:
-                raise Exception(f"Unknown state: {self.state}")
+                raise FlasherException(f"Unknown state: {self.state}")
 
             self.emit_progress()
         self.emit_state(f"{self.state} -> Enjoy!")
@@ -261,13 +265,13 @@ class DFU:
                     if response == b'\x06':
                         break
                     elif response == b'\x15':
-                        raise Exception("CRC fail")
+                        raise FlasherException("CRC fail")
                     elif not response:
                         continue
                     else:
-                        raise Exception("Unexpected response")
+                        raise FlasherException("Unexpected response")
                 if repeat + 1 == max_repeats:
-                    raise Exception("Unexpected response. Invalid FW file?")
+                    raise FlasherException("Unexpected response. Invalid FW file?")
 
         # this part is actually only needed somewhere after 70%...
         self.send(b'\x04\x04\x04')
@@ -275,7 +279,7 @@ class DFU:
         if b'\x06' not in response:
             pass
             #print("Warn: missing confirmation")
-        #    raise Exception("Unexpected response")
+        #    raise FlasherException("Unexpected response")
 
         # count up for the last message, even if no packet sent
         self.n_packets_sent += 1
@@ -308,7 +312,7 @@ class DFU:
             self.debug_log("Firmware update verified successfully!")
             self.state = DFUState.DFU_ACTIVE
         elif b'r\r' in response:
-            raise Exception("Verify failed")
+            raise FlasherException("Verify failed")
 
     def activate_dfu(self):
         self.send(b'down dfu_active\r')
@@ -317,7 +321,7 @@ class DFU:
             self.log("> Firmware update completed successfully!")
             self.state = DFUState.VER_DONE
         elif b'r\r' in response:  # 'error\r'
-            raise Exception("Activate failed")
+            raise FlasherException("Activate failed")
 
     def send(self, data: bytearray):
         self.debug_log("Sending:", data.hex(' ').upper())

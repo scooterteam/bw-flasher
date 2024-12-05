@@ -50,11 +50,11 @@ jobs:
             TARGET: macos
             CMD_BUILD: >
               pip install -U --no-cache-dir pillow &&
-              pyinstaller --target-arch universal2 -n bwflasher -i resources/app.ico --add-data "resources/*:resources" -w -F -s bwflasher/gui.py &&
+              pyinstaller --target-arch x86_64 -n bwflasher -i resources/app.ico --add-data "resources/*:resources" -w -F -s bwflasher/gui.py &&
               cd dist/ &&
               zip -r9 bwflasher bwflasher.app/
             OUT_FILENAME: bwflasher.zip
-            UPLOAD_FILENAME: bwflasher-${{ github.ref_name }}-macos-universal.zip
+            UPLOAD_FILENAME: bwflasher-${{ github.ref_name }}-macos-x86_64.zip
             ASSET_MIME: application/zip
           - os: windows-latest
             TARGET: windows

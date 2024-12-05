@@ -42,7 +42,7 @@ jobs:
         include:
           - os: ubuntu-latest
             TARGET: linux
-            CMD_BUILD: pyinstaller -n bwflasher -i app.ico --add-data "chiptune.mp3:." --add-data "app.ico:." -w -F -s flasher.py
+            CMD_BUILD: pyinstaller -n bwflasher -i resources/app.ico --add-data "resources/*:resources" -w -F -s flasher.py
             OUT_FILENAME: bwflasher
             UPLOAD_FILENAME: bwflasher-${{ github.ref_name }}-linux-x64
             ASSET_MIME: application/x-executable
@@ -50,7 +50,7 @@ jobs:
             TARGET: macos
             CMD_BUILD: >
               pip install -U --no-cache-dir pillow &&
-              pyinstaller --target-arch universal2 -n bwflasher -i app.ico --add-data "chiptune.mp3:." --add-data "app.ico:." -w -F -s flasher.py &&
+              pyinstaller --target-arch universal2 -n bwflasher -i resources/app.ico --add-data "resources/*:resources" -w -F -s flasher.py &&
               cd dist/ &&
               zip -r9 bwflasher bwflasher.app/
             OUT_FILENAME: bwflasher.zip
@@ -58,7 +58,7 @@ jobs:
             ASSET_MIME: application/zip
           - os: windows-latest
             TARGET: windows
-            CMD_BUILD: pyinstaller -n bwflasher -i app.ico --add-data "chiptune.mp3:." --add-data "app.ico:." -w -F flasher.py
+            CMD_BUILD: pyinstaller -n bwflasher -i resources/app.ico --add-data "resources/*:resources" -w -F flasher.py
             OUT_FILENAME: bwflasher.exe
             UPLOAD_FILENAME: bwflasher-${{ github.ref_name }}-windows-x64.exe
             ASSET_MIME: application/vnd.microsoft.portable-executable

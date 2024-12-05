@@ -22,6 +22,8 @@ import serial.tools.list_ports
 import sys
 import os
 import platform
+import webbrowser
+
 from serial.serialutil import SerialException
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
@@ -30,7 +32,9 @@ from PySide6.QtWidgets import (
 from PySide6.QtGui import QPalette, QIcon
 from PySide6.QtCore import Qt, QThread, Signal, QUrl, QTimer
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
-from flash_uart import DFU, FlasherException
+
+from bwflasher.flash_uart import DFU, FlasherException
+from bwflasher.updater import check_update, get_name
 
 OS = platform.system()
 
@@ -43,7 +47,7 @@ def resource_path(relative_path):
     except Exception:
         base_path = os.path.abspath(".")
 
-    return os.path.join(base_path, relative_path)
+    return os.path.join(base_path, "resources", relative_path)
 
 
 def get_serial_ports():
@@ -103,11 +107,13 @@ class FirmwareUpdateGUI(QWidget):
 
         self.update_thread = None
         self.flasher_debug = False
+        self.window_name = get_name()
 
-        self.setWindowTitle("BwFlasher")
+        self.setWindowTitle(self.window_name)
         self.setWindowIcon(QIcon(resource_path("app.ico")))
 
         self.setStyleSheet("QWidget { font-family: 'Courier New', monospace; font-size: 12pt; }")
+        self.check_update()
         self.disclaimer_messagebox()
 
         self.setGeometry(100, 100, 400, 300)
@@ -259,7 +265,7 @@ class FirmwareUpdateGUI(QWidget):
 
         error_dialog = QMessageBox(self)
         error_dialog.setIcon(QMessageBox.Critical)
-        error_dialog.setWindowTitle(f"BwFlasher - {error_type} Error")
+        error_dialog.setWindowTitle(f"{self.window_name} - {error_type} Error")
         error_dialog.setText(message)
         error_dialog.exec()
         self.start_button.setEnabled(True)
@@ -267,12 +273,31 @@ class FirmwareUpdateGUI(QWidget):
     def disclaimer_messagebox(self):
         messagebox = QMessageBox(self)
         messagebox.setIcon(QMessageBox.Warning)
-        messagebox.setWindowTitle("BwFlasher - Disclaimer")
+        messagebox.setWindowTitle(f"{self.window_name} - Disclaimer")
         messagebox.setText("Use of this tool is entirely at your own risk, as it is provided as-is without any "
                            "guarantees or warranties. By using this tool, you agree not to use it for any commercial "
                            "purposes, including but not limited to selling, distributing, or integrating it into any "
                            "product or service intended for monetary gain.")
         messagebox.exec()
+
+    def check_update(self):
+        update_details = check_update()
+        if not update_details:
+            return
+
+        new_version = update_details["tag_name"]
+        url_download = update_details["html_url"]
+
+        messagebox = QMessageBox(self)
+        messagebox.setIcon(QMessageBox.Question)
+        messagebox.setWindowTitle(f"{self.window_name} - Update Available")
+        messagebox.setText(f"There is an BWFlasher {new_version} update available! Would you like to download it now?")
+        messagebox.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+
+        x = messagebox.exec()
+        if x == QMessageBox.StandardButton.Yes:
+            webbrowser.open(url_download)
+            sys.exit(0)
 
 
 if __name__ == "__main__":

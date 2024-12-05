@@ -23,8 +23,10 @@ import binascii
 import math
 import time
 import os
+
 from enum import Enum
-from keygen import sign_rand
+
+from bwflasher.keygen import sign_rand
 
 
 class FlasherException(Exception):
@@ -258,7 +260,7 @@ class DFU:
                 crc16 = calculate_crc16(data_chunk).to_bytes(2, 'big')
                 packet = b'\x01' + N + N_ + data_chunk + crc16
 
-                max_repeats = 3
+                max_repeats = 5
                 for repeat in range(max_repeats):
                     self.send(packet)
                     response = self.receive_response(1, expected_byte=b'\x06')
@@ -355,38 +357,3 @@ class DFU:
             self.debug_log("Got response:", response.hex(' ').upper())
             return response
 
-
-if __name__ == "__main__":
-    import argparse
-    from tqdm import tqdm
-
-    default_port = "COM1" if os.name == "nt" else "/dev/ttyUSB0"
-    parser = argparse.ArgumentParser(
-        formatter_class=argparse.ArgumentDefaultsHelpFormatter
-    )
-    parser.add_argument("fw_file")
-    parser.add_argument("--simulation", action='store_true')
-    parser.add_argument("--debug", action='store_true', help="Enable debug output")
-    parser.add_argument("--port", default=default_port, help="Serial port")
-    args = parser.parse_args()
-
-    with tqdm(total=100, desc="Flashing") as pbar:
-        def log_callback(message):
-            tqdm.write(message)
-        def status_callback(status):
-            tqdm.write(status)
-        def progress_callback(progress):
-            pbar.n = progress
-            pbar.refresh()
-
-        updater = DFU(
-            tty_port=args.port,
-            simulation=args.simulation,
-            debug=args.debug,
-            log_callback=log_callback,
-            status_callback=status_callback,
-            progress_callback=progress_callback
-        )
-        updater.load_file(args.fw_file)
-
-        updater.run()

@@ -15,7 +15,7 @@ It's recommended to use a virtual environment like `venv` for installation.
 ### CLI
 
 ```bash
-usage: flash_uart.py [-h] [--simulation] [--debug] fw_file
+usage: python -m bwflasher [-h] [--simulation] [--debug] [--port PORT] fw_file
 
 positional arguments:
   fw_file
@@ -24,20 +24,21 @@ options:
   -h, --help    show this help message and exit
   --simulation
   --debug       Enable debug output
+  --port PORT   Serial port (default: COM1)
 ```
 
 ### GUI
 Run the flasher GUI with this command:
 
 ```bash
-python flasher.py
+python -m bwflasher.gui
 ```
 
 ## Deployment
 You can package the project as a standalone executable using the following command:
 
 ```bash
-pyinstaller --name="bwflasher" -i app.ico --add-data "chiptune.mp3:." --add-data "app.ico:." --windowed --onefile flasher.py
+pyinstaller --name="bwflasher" -i resources/app.ico --add-data "resources/*:resources" --windowed --onefile flasher.py
 ```
 
 ## Disclaimer

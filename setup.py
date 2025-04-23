@@ -16,7 +16,7 @@ setup(
     author="ScooterTeam",
     url="https://github.com/scooterteam/bw-flasher",
     python_requires=">=3.10, <4",
-    license="AGPL-3.0",
+    license="CC BY-NC-SA 4.0",
     packages=["bwflasher"],
     keywords=["Xiaomi", "Brightway", "ScooterTeam", "Scooter", "BWFlasher"],
     entry_points={"console_scripts": ["bwflasher=bwflasher.__main__:main"]}

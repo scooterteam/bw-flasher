@@ -116,7 +116,7 @@ def sign_rand(
     uid: bytearray(16),
     rand: bytearray(16),
     fw: bytes,
-    base_offset: int = 0x19985
+    base_offset: int = 0x17080
 ):
     """
     Sign challenge `rand` with key generated from `uid`,

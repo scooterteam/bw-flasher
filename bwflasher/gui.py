@@ -59,7 +59,7 @@ def get_serial_ports():
         return [port[0] for port in ports if port[0].startswith(prefix)] if ports else []
 
 
-class FirmwareUpdateThread(QThread):
+class BaseThread(QThread):
     progress_signal = Signal(int)
     status_signal = Signal(str)
     debug_signal = Signal(str)
@@ -72,29 +72,55 @@ class FirmwareUpdateThread(QThread):
         self.simulation = simulation
         self.debug = debug
 
+    def update_progress(self, value):
+        self.progress_signal.emit(value)
+
+    def log_debug(self, message):
+        self.debug_signal.emit(message)
+
+    def show_status(self, message):
+        self.status_signal.emit(message)
+
+
+class FirmwareUpdateThread(BaseThread):
+    def __init__(self, com_port, firmware_file, simulation, debug, parent=None):
+        super().__init__(com_port, firmware_file, simulation, debug, parent)
+
     def run(self):
-        def update_progress(value):
-            self.progress_signal.emit(value)
-
-        def log_debug(message):
-            self.debug_signal.emit(message)
-
-        def show_status(message):
-            self.status_signal.emit(message)
-
         try:
             updater = DFU(
                 tty_port=self.com_port,
                 simulation=self.simulation,
                 debug=self.debug,
-                status_callback=show_status,
-                log_callback=log_debug,
-                progress_callback=update_progress
+                status_callback=self.show_status,
+                log_callback=self.log_debug,
+                progress_callback=self.update_progress,
             )
             updater.load_file(self.firmware_file)
             updater.run()
         except FlasherException as e:
             self.exception_signal.emit(["Flasher", str(e)])
+        except SerialException:
+            self.exception_signal.emit(["Serial", "The serial connection caused an error. Is your adapter connected?"])
+        except Exception as e:
+            self.exception_signal.emit(["Unknown", str(e)])
+
+
+class TestConnectionThread(BaseThread):
+    def __init__(self, com_port, firmware_file, simulation, debug, parent=None):
+        super().__init__(com_port, firmware_file, simulation, debug, parent)
+
+    def run(self):
+        try:
+            updater = DFU(
+                tty_port=self.com_port,
+                simulation=self.simulation,
+                debug=self.debug,
+                status_callback=self.show_status,
+                log_callback=self.log_debug,
+                progress_callback=self.update_progress,
+            )
+            updater.test_connection()
         except SerialException:
             self.exception_signal.emit(["Serial", "The serial connection caused an error. Is your adapter connected?"])
         except Exception as e:
@@ -160,9 +186,14 @@ class FirmwareUpdateGUI(QWidget):
         self.debug_checkbox = QCheckBox("Debug Mode")
         layout.addWidget(self.debug_checkbox)
 
+        layout_h = QHBoxLayout()
+        self.test_button = QPushButton("Test Connection")
+        self.test_button.clicked.connect(self.test_connection)
+        layout_h.addWidget(self.test_button)
         self.start_button = QPushButton("Start Update")
         self.start_button.clicked.connect(self.start_update)
-        layout.addWidget(self.start_button)
+        layout_h.addWidget(self.start_button)
+        layout.addLayout(layout_h)
 
         self.progress_bar = QProgressBar()
         layout.addWidget(self.progress_bar)
@@ -225,6 +256,14 @@ class FirmwareUpdateGUI(QWidget):
         if file:
             self.file_path.setText(file)
 
+    def test_connection(self):
+        simulation = self.simulation_checkbox.isChecked()
+        self.flasher_debug = self.debug_checkbox.isChecked()
+        com_port = self.com_port.currentText()
+
+        self.update_thread = TestConnectionThread(com_port, None, simulation, self.flasher_debug)
+        self.start_thread()
+
     def start_update(self):
         firmware_file = self.file_path.text()
         if not firmware_file:
@@ -236,6 +275,9 @@ class FirmwareUpdateGUI(QWidget):
         com_port = self.com_port.currentText()
 
         self.update_thread = FirmwareUpdateThread(com_port, firmware_file, simulation, self.flasher_debug)
+        self.start_thread()
+
+    def start_thread(self):
         self.update_thread.progress_signal.connect(self.update_progress)
         self.update_thread.debug_signal.connect(self.debug_log)
         self.update_thread.status_signal.connect(self.update_status)
@@ -243,11 +285,13 @@ class FirmwareUpdateGUI(QWidget):
         self.log_output.clear()
         self.update_thread.start()
 
+        self.test_button.setEnabled(False)
         self.start_button.setEnabled(False)
 
     def update_progress(self, value):
         self.progress_bar.setValue(value)
         if value == 100:
+            self.test_button.setEnabled(True)
             self.start_button.setEnabled(True)
 
     def update_status(self, message):
@@ -268,6 +312,7 @@ class FirmwareUpdateGUI(QWidget):
         error_dialog.setWindowTitle(f"{self.window_name} - {error_type} Error")
         error_dialog.setText(message)
         error_dialog.exec()
+        self.test_button.setEnabled(True)
         self.start_button.setEnabled(True)
 
     def disclaimer_messagebox(self):

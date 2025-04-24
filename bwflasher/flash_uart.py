@@ -63,6 +63,7 @@ class DFU:
     PACKET_SIZE = 0x800
     CHUNK_SIZE = 0x80
     CHUNKS_PER_PACKET = PACKET_SIZE // CHUNK_SIZE
+    MAX_REPEATS = 5
 
     def __init__(
         self,
@@ -170,6 +171,27 @@ class DFU:
             self.emit_progress()
         self.emit_state(f"{self.state} -> Enjoy!")
 
+    def test_connection(self):
+        retries = 0
+        while self.state != DFUState.INIT:
+            if self.state != self.prev_state:
+                retries = 0
+
+            if retries == self.MAX_REPEATS:
+                raise FlasherException("Max retries reached. Check your connection.")
+
+            if self.state == DFUState.UID:
+                self.emit_state(f"{self.state} -> Fetching UID")
+                self.get_uid()
+            elif self.state == DFUState.VER_INIT:
+                self.emit_state(f"{self.state} -> Sending 'get_ver'")
+                self.get_ver()
+
+            retries += 1
+
+        self.log(f"{self.state} -> Successfully established connection!")
+        self.progress_callback(100)
+
     def get_uid(self):
         byte_start = b'\x64'
         byte_end = b'\x9B'
@@ -214,8 +236,7 @@ class DFU:
             ble_key = response[3:19]  # Simulating extraction of BLE_KEY
             self.debug_log("BLE_KEY:", ble_key.hex(' '))
             if ble_key != ble_key_expected:
-                self.log("> Error: BLE_KEY does not match! Correct UID?")
-                self.state = DFUState.DONE
+                raise FlasherException("BLE_KEY does not match! Correct UID?")
 
     def request_mcu_rand(self):
         self.send(b'down mcu_rand\r')
@@ -260,8 +281,7 @@ class DFU:
                 crc16 = calculate_crc16(data_chunk).to_bytes(2, 'big')
                 packet = b'\x01' + N + N_ + data_chunk + crc16
 
-                max_repeats = 5
-                for repeat in range(max_repeats):
+                for repeat in range(self.MAX_REPEATS):
                     self.send(packet)
                     response = self.receive_response(1, expected_byte=b'\x06')
                     if response == b'\x06':
@@ -272,7 +292,7 @@ class DFU:
                         continue
                     else:
                         raise FlasherException("Unexpected response")
-                if repeat + 1 == max_repeats:
+                if repeat + 1 == self.MAX_REPEATS:
                     raise FlasherException("Unexpected response. Invalid FW file?")
 
         # this part is actually only needed somewhere after 70%...

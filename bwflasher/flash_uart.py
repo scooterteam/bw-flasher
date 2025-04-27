@@ -212,12 +212,13 @@ class DFU:
     def get_ver(self):
         self.send(b'down get_ver\r')
         response = self.receive_response(5)
-        if response[-1:] == b'\r':
+        if b'\r' in response[-2:]:
+            ver = response.split(b'\r')[0].decode()
             if self.state == DFUState.VER_INIT:
-                self.log("> MCU Version (before): " + response.decode())
+                self.log("> MCU Version (before): " + ver)
                 self.state = DFUState.INIT
             elif self.state == DFUState.VER_DONE:
-                self.log("> MCU Version (after): " + response.decode())
+                self.log("> MCU Version (after): " + ver)
                 self.state = DFUState.DONE
 
     def send_rd_info(self):

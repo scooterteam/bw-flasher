@@ -26,6 +26,7 @@ import os
 
 from enum import Enum
 
+from bwflasher.utils import find_pattern_offsets
 from bwflasher.keygen import sign_rand
 
 
@@ -88,6 +89,7 @@ class DFU:
         self.total_packets = 0
         self.total_chunks = 0
         self.n_packets_sent = 0
+        self.fw_offsets = []
 
         self.status_callback = status_callback
         self.progress_callback = progress_callback
@@ -98,10 +100,24 @@ class DFU:
         else:
             self.serial_conn = None  # No serial connection in simulation mode
 
+    def __find_fw_offsets(self):
+        offsets = find_pattern_offsets("637C", self.fw)
+        if len(offsets) != 1:
+            raise FlasherException("Invalid / unsupported firmware file")
+        offset_0 = offsets[0]
+
+        offsets = find_pattern_offsets("0102", self.fw, start_offset=offset_0)
+        if len(offsets) != 1:
+            raise FlasherException("Invalid / unsupported firmware file")
+        offset_1 = offsets[0] - 1
+        self.fw_offsets = [offset_0, offset_1]
+
     def load_file(self, firmware_file):
         self.debug_log("Loading firmware file")
         with open(firmware_file, 'rb') as fw:
             self.fw = fw.read()
+
+        self.__find_fw_offsets()
 
         self.total_packets = math.ceil(len(self.fw) / self.PACKET_SIZE)
         self.total_chunks = self.total_packets * self.CHUNKS_PER_PACKET
@@ -228,7 +244,7 @@ class DFU:
             self.state = DFUState.BLE_RAND
 
     def send_ble_rand(self):
-        ble_key_expected = sign_rand(self.uid, self.ble_rand, self.fw)
+        ble_key_expected = sign_rand(self.uid, self.ble_rand, self.fw, self.fw_offsets[0], self.fw_offsets[1])
 
         self.send(b'down ble_rand ' + self.ble_rand + b'\r')
         response = self.receive_response(20)
@@ -248,7 +264,7 @@ class DFU:
             self.state = DFUState.MCU_KEY
 
     def send_mcu_key(self):
-        mcu_key = sign_rand(self.uid, self.mcu_rand, self.fw)
+        mcu_key = sign_rand(self.uid, self.mcu_rand, self.fw, self.fw_offsets[0], self.fw_offsets[1])
         self.send(b'down mcu_key ' + mcu_key + b'\r')
         response = self.receive_response(3)
         if response == b'ok\r':

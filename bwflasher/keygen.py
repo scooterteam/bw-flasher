@@ -116,7 +116,8 @@ def sign_rand(
     uid: bytearray(16),
     rand: bytearray(16),
     fw: bytes,
-    base_offset: int = 0x17080
+    fw_offset_0: int,
+    fw_offset_1: int
 ):
     """
     Sign challenge `rand` with key generated from `uid`,
@@ -124,11 +125,11 @@ def sign_rand(
     """
     lookup_table_0 = bytearray(256)
     for i in range(256):
-        lookup_table_0[i] = fw[base_offset+0xA802+i]
+        lookup_table_0[i] = fw[fw_offset_0+i]
 
     lookup_table_1 = bytearray(1+10)
     for i in range(1, 1+10):  # byte0 is not used
-        lookup_table_1[i] = fw[base_offset+0xAA02+i]
+        lookup_table_1[i] = fw[fw_offset_1+i]
 
     key = bytearray(176)
     gen_key(key, uid, lookup_table_0, lookup_table_1)
@@ -145,7 +146,6 @@ if __name__ == "__main__":
     parser.add_argument("uid")
     parser.add_argument("rand")
     parser.add_argument("fw")
-    parser.add_argument("--fw-base-offset", default=0x17080)
     args = parser.parse_args()
 
     fw = None
@@ -155,7 +155,7 @@ if __name__ == "__main__":
     key = sign_rand(
         args.uid.encode(),
         bytes.fromhex(args.rand),
-        fw,
-        base_offset=args.fw_base_offset
+        0,
+        0,
     )
     print(key.hex())

@@ -23,6 +23,7 @@ import sys
 import os
 import platform
 import webbrowser
+import requests
 
 from serial.serialutil import SerialException
 from PySide6.QtWidgets import (
@@ -326,7 +327,16 @@ class FirmwareUpdateGUI(QWidget):
         messagebox.exec()
 
     def check_update(self):
-        update_details = check_update()
+        try:
+            update_details = check_update()
+        except requests.exceptions.RequestException as e:
+            messagebox = QMessageBox(self)
+            messagebox.setIcon(QMessageBox.Critical)
+            messagebox.setWindowTitle(f"{self.window_name} - Updater Error")
+            messagebox.setText(f"Failed to check the availability of program updates!\n{e}")
+            messagebox.exec()
+            return
+
         if not update_details:
             return
 

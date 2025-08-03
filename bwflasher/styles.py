@@ -192,7 +192,6 @@ QCheckBox::indicator {
 QCheckBox::indicator:checked {
     background: #0ea5e9;
     border: 1px solid #0ea5e9;
-    image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEwIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDMuOEwzLjggNi42TDkgMSIgc3Ryb2tlPSIjMGQxMTE3IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K);
 }
 
 QCheckBox::indicator:hover {

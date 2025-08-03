@@ -30,12 +30,13 @@ from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QProgressBar, QFileDialog, QCheckBox, QTextEdit, QStatusBar, QComboBox, QMessageBox
 )
-from PySide6.QtGui import QPalette, QIcon
+from PySide6.QtGui import QPalette, QIcon, QColor
 from PySide6.QtCore import Qt, QThread, Signal, QUrl, QTimer
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 
 from bwflasher.flash_uart import DFU, FlasherException
 from bwflasher.updater import check_update, get_name
+from bwflasher.styles import DARK_THEME_STYLESHEET, COLOR_PALETTE
 
 OS = platform.system()
 
@@ -139,68 +140,86 @@ class FirmwareUpdateGUI(QWidget):
         self.setWindowTitle(self.window_name)
         self.setWindowIcon(QIcon(resource_path("app.ico")))
 
-        self.setStyleSheet("QWidget { font-family: 'Courier New', monospace; font-size: 12pt; }")
+        # Set object name for styling
+        self.setObjectName("mainWindow")
+
+        # Set the modern dark theme stylesheet
+        self.setStyleSheet(DARK_THEME_STYLESHEET)
+        
         self.check_update()
         self.disclaimer_messagebox()
 
-        self.setGeometry(100, 100, 400, 300)
+        self.setGeometry(100, 100, 600, 500)
         layout = QVBoxLayout()
+        layout.setSpacing(8)
+        layout.setContentsMargins(16, 16, 16, 16)
 
-        color = self.palette().color(QPalette.Highlight)
-        self.heading_text = ".-=* Brightway Flasher by ScooterTeam *=-."
+        self.heading_text = "╔══════════════════════════════════════════════════════════════╗\n║                    Brightway Flasher v0.5.2                    ║\n║                        by ScooterTeam                          ║\n╚══════════════════════════════════════════════════════════════╝"
         self.heading_label = QLabel(self.heading_text, self)
         self.heading_label.setAlignment(Qt.AlignCenter)
-        #self.heading_label.setStyleSheet("font-size: 20px; font-weight: bold;")
-        self.heading_label.setStyleSheet(f"font-size: 24px; color: {color.name()};")
+        self.heading_label.setObjectName("titleLabel")
         layout.addWidget(self.heading_label)
 
-        #layout_h = QHBoxLayout()
-        #self.dev_label = QLabel("Set Device:")
-        #layout_h.addWidget(self.dev_label)
-        #self.dev_box = QComboBox()
-        #self.dev_box.addItem("4Pro2nd")
-        #layout_h.addWidget(self.dev_box)
-        #layout.addLayout(layout_h)
-
+        # Serial port selection
         layout_h = QHBoxLayout()
-        self.com_label = QLabel("Set Serial Port:")
+        layout_h.setSpacing(8)
+        self.com_label = QLabel("Serial Port:")
+        self.com_label.setMinimumWidth(80)
         layout_h.addWidget(self.com_label)
         self.com_port = QComboBox()
         self.com_port.setEditable(True)
         self.com_port.addItems(get_serial_ports())
+        self.com_port.setObjectName("serialCombo")
         layout_h.addWidget(self.com_port)
         layout.addLayout(layout_h)
 
+        # Firmware file selection
         layout_h = QHBoxLayout()
-        self.file_label = QLabel("Select Firmware File:")
+        layout_h.setSpacing(8)
+        self.file_label = QLabel("Firmware File:")
+        self.file_label.setMinimumWidth(80)
         layout_h.addWidget(self.file_label)
         self.file_path = QLineEdit()
-        layout_h.addWidget(self.file_path)
+        self.file_path.setObjectName("filePath")
+        self.file_path.setPlaceholderText("Select firmware file...")
+        layout_h.addWidget(self.file_path, 1)
         self.browse_button = QPushButton("Browse")
+        self.browse_button.setObjectName("browseButton")
         self.browse_button.clicked.connect(self.browse_file)
         layout_h.addWidget(self.browse_button)
         layout.addLayout(layout_h)
 
+        # Mode selection
         self.simulation_checkbox = QCheckBox("Simulation Mode")
+        self.simulation_checkbox.setObjectName("simulationCheck")
         layout.addWidget(self.simulation_checkbox)
 
         self.debug_checkbox = QCheckBox("Debug Mode")
+        self.debug_checkbox.setObjectName("debugCheck")
         layout.addWidget(self.debug_checkbox)
 
+        # Action buttons
         layout_h = QHBoxLayout()
-        self.test_button = QPushButton("Test Connection")
+        layout_h.setSpacing(12)
+        self.test_button = QPushButton("🔍 Test Connection")
+        self.test_button.setObjectName("testButton")
         self.test_button.clicked.connect(self.test_connection)
         layout_h.addWidget(self.test_button)
-        self.start_button = QPushButton("Start Update")
+        self.start_button = QPushButton("🚀 Start Update")
+        self.start_button.setObjectName("startButton")
         self.start_button.clicked.connect(self.start_update)
         layout_h.addWidget(self.start_button)
         layout.addLayout(layout_h)
 
+        # Progress bar
         self.progress_bar = QProgressBar()
+        self.progress_bar.setObjectName("progressBar")
         layout.addWidget(self.progress_bar)
 
+        # Log output
         self.log_output = QTextEdit()
         self.log_output.setReadOnly(True)
+        self.log_output.setObjectName("logOutput")
         layout.addWidget(self.log_output)
 
         self.status_bar = QStatusBar(self)
@@ -220,32 +239,16 @@ class FirmwareUpdateGUI(QWidget):
         # Play the audio
         self.player.play()
 
-        # Set up animation
-        self.animation_index = 0
-        self.animation_dir = 1
-        self.animation_frames = []
-        self.setup_animation()
-
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_animation)
-        self.timer.start(50)  # Adjust to control speed of the animation
+        # Set static banner (no animation)
+        self.heading_label.setText(self.heading_text)
 
     def setup_animation(self):
-        for i in range(len(self.heading_text)):
-            self.animation_frames += [
-                self.heading_text[:i] +
-                self.heading_text[i].upper() +
-                self.heading_text[i+1:]
-            ]
+        # Animation removed - kept for compatibility
+        pass
 
     def update_animation(self):
-        # Cycle through the animation frames and update the label
-        self.heading_label.setText(self.animation_frames[self.animation_index])
-        if self.animation_index == len(self.animation_frames) - 1:
-            self.animation_dir = -1
-        elif self.animation_index == 0:
-            self.animation_dir = 1
-        self.animation_index = self.animation_index + self.animation_dir
+        # Animation removed - kept for compatibility
+        pass
 
     def browse_file(self):
         file, _ = QFileDialog.getOpenFileName(

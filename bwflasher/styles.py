@@ -25,12 +25,12 @@ QWidget#mainWindow {
 QLabel#titleLabel {
     font-size: 14px;
     font-weight: 600;
-    color: #1f6feb;
+    color: #0ea5e9;
     padding: 12px 16px;
-    background: rgba(31, 111, 235, 0.08);
+    background: rgba(14, 165, 233, 0.08);
     border-radius: 4px;
     margin: 8px;
-    border: 1px solid rgba(31, 111, 235, 0.15);
+    border: 1px solid rgba(14, 165, 233, 0.15);
     font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
     line-height: 1.2;
 }
@@ -76,7 +76,7 @@ QLineEdit, QComboBox {
 }
 
 QLineEdit:focus, QComboBox:focus {
-    border: 1px solid #1f6feb;
+    border: 1px solid #0ea5e9;
     background: #161b22;
 }
 
@@ -94,7 +94,7 @@ QComboBox::down-arrow {
     image: none;
     border-left: 4px solid transparent;
     border-right: 4px solid transparent;
-    border-top: 4px solid #1f6feb;
+    border-top: 4px solid #0ea5e9;
     margin-right: 4px;
 }
 
@@ -102,7 +102,7 @@ QComboBox QAbstractItemView {
     background: #0d1117;
     border: 1px solid #30363d;
     border-radius: 4px;
-    selection-background-color: #1f6feb;
+    selection-background-color: #0ea5e9;
     color: #e6e6e6;
     outline: none;
 }
@@ -122,8 +122,8 @@ QPushButton {
 
 QPushButton:hover {
     background: #30363d;
-    border: 1px solid #1f6feb;
-    color: #1f6feb;
+    border: 1px solid #0ea5e9;
+    color: #0ea5e9;
 }
 
 QPushButton:pressed {
@@ -151,7 +151,7 @@ QProgressBar {
 }
 
 QProgressBar::chunk {
-    background: #1f6feb;
+    background: #0ea5e9;
     border-radius: 1px;
     margin: 1px;
 }
@@ -170,7 +170,7 @@ QTextEdit {
 }
 
 QTextEdit:focus {
-    border: 1px solid #1f6feb;
+    border: 1px solid #0ea5e9;
 }
 
 /* Checkboxes */
@@ -190,13 +190,13 @@ QCheckBox::indicator {
 }
 
 QCheckBox::indicator:checked {
-    background: #1f6feb;
-    border: 1px solid #1f6feb;
+    background: #0ea5e9;
+    border: 1px solid #0ea5e9;
     image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEwIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDMuOEwzLjggNi42TDkgMSIgc3Ryb2tlPSIjMGQxMTE3IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K);
 }
 
 QCheckBox::indicator:hover {
-    border: 1px solid #1f6feb;
+    border: 1px solid #0ea5e9;
     background: #161b22;
 }
 
@@ -231,7 +231,7 @@ QScrollBar::handle:vertical {
 }
 
 QScrollBar::handle:vertical:hover {
-    background: #1f6feb;
+    background: #0ea5e9;
 }
 
 QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {
@@ -262,15 +262,15 @@ QMessageBox QPushButton {
 
 /* Checkbox glow when checked */
 QCheckBox#simulationCheck:checked, QCheckBox#debugCheck:checked {
-    color: #1f6feb;
+    color: #0ea5e9;
 }
 """
 
 # Color palette for the application
 COLOR_PALETTE = {
-    'primary': '#1f6feb',       # GitHub blue (darker for better contrast)
-    'primary_dark': '#0d4b9e',  # Darker blue
-    'primary_light': '#58a6ff', # Lighter blue
+    'primary': '#0ea5e9',       # Fresh sky blue
+    'primary_dark': '#0284c7',  # Darker sky blue
+    'primary_light': '#38bdf8', # Lighter sky blue
     'background': '#0d1117',    # GitHub dark
     'surface': '#161b22',       # Surface color
     'text': '#e6e6e6',          # Light grey text
@@ -279,5 +279,5 @@ COLOR_PALETTE = {
     'error': '#f85149',         # Error color
     'success': '#3fb950',       # Success color
     'warning': '#d29922',       # Warning color
-    'accent': '#1f6feb'         # Blue accent
+    'accent': '#0ea5e9'         # Sky blue accent
 } 

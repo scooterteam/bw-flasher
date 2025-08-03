@@ -64,7 +64,7 @@ class DFU:
     PACKET_SIZE = 0x800
     CHUNK_SIZE = 0x80
     CHUNKS_PER_PACKET = PACKET_SIZE // CHUNK_SIZE
-    MAX_REPEATS = 5
+    MAX_REPEATS = 20
 
     def __init__(
         self,
@@ -307,10 +307,8 @@ class DFU:
                         raise FlasherException("CRC fail")
                     elif not response:
                         continue
-                    else:
-                        raise FlasherException("Unexpected response")
                 if repeat + 1 == self.MAX_REPEATS:
-                    raise FlasherException("Unexpected response. Invalid FW file?")
+                    raise FlasherException(f"No valid ACK after {self.MAX_REPEATS} retries. Check serial adapter (driver / settings) and make sure the firmware file is valid for this device.")
 
         # this part is actually only needed somewhere after 70%...
         self.send(b'\x04\x04\x04')

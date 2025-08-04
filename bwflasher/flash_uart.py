@@ -308,7 +308,7 @@ class DFU:
                     elif not response:
                         continue
                 if repeat + 1 == self.MAX_REPEATS:
-                    raise FlasherException(f"No valid ACK after {self.MAX_REPEATS} retries. Check serial adapter (driver / settings) and make sure the firmware file is valid for this device.")
+                    raise FlasherException(f"No valid ACK after {self.MAX_REPEATS} retries. Check serial adapter (driver / settings) and make sure the correct firmware file is selected for this device.")
 
         # this part is actually only needed somewhere after 70%...
         self.send(b'\x04\x04\x04')

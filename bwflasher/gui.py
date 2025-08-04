@@ -30,12 +30,14 @@ from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QProgressBar, QFileDialog, QCheckBox, QTextEdit, QStatusBar, QComboBox, QMessageBox
 )
-from PySide6.QtGui import QPalette, QIcon
+from PySide6.QtGui import QPalette, QIcon, QColor, QCursor
 from PySide6.QtCore import Qt, QThread, Signal, QUrl, QTimer
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 
 from bwflasher.flash_uart import DFU, FlasherException
 from bwflasher.updater import check_update, get_name
+from bwflasher.styles import DARK_THEME_STYLESHEET, COLOR_PALETTE
+from bwflasher.version import __version__
 
 OS = platform.system()
 
@@ -139,68 +141,92 @@ class FirmwareUpdateGUI(QWidget):
         self.setWindowTitle(self.window_name)
         self.setWindowIcon(QIcon(resource_path("app.ico")))
 
-        self.setStyleSheet("QWidget { font-family: 'Courier New', monospace; font-size: 12pt; }")
+        # Set object name for styling
+        self.setObjectName("mainWindow")
+
+        # Set the modern dark theme stylesheet
+        self.setStyleSheet(DARK_THEME_STYLESHEET)
+        
         self.check_update()
         self.disclaimer_messagebox()
 
-        self.setGeometry(100, 100, 400, 300)
+        self.setGeometry(100, 100, 600, 500)
         layout = QVBoxLayout()
+        layout.setSpacing(8)
+        layout.setContentsMargins(16, 16, 16, 16)
 
-        color = self.palette().color(QPalette.Highlight)
-        self.heading_text = ".-=* Brightway Flasher by ScooterTeam *=-."
+        # Create banner text programmatically
+        self.heading_text = self.create_banner_text()
         self.heading_label = QLabel(self.heading_text, self)
         self.heading_label.setAlignment(Qt.AlignCenter)
-        #self.heading_label.setStyleSheet("font-size: 20px; font-weight: bold;")
-        self.heading_label.setStyleSheet(f"font-size: 24px; color: {color.name()};")
+        self.heading_label.setObjectName("titleLabel")
+        # Set monospace font for proper ASCII art alignment
+        from PySide6.QtGui import QFont
+        monospace_font = QFont("JetBrains Mono", 10)
+        monospace_font.setStyleHint(QFont.Monospace)
+        self.heading_label.setFont(monospace_font)
         layout.addWidget(self.heading_label)
 
-        #layout_h = QHBoxLayout()
-        #self.dev_label = QLabel("Set Device:")
-        #layout_h.addWidget(self.dev_label)
-        #self.dev_box = QComboBox()
-        #self.dev_box.addItem("4Pro2nd")
-        #layout_h.addWidget(self.dev_box)
-        #layout.addLayout(layout_h)
-
+        # Serial port selection
         layout_h = QHBoxLayout()
-        self.com_label = QLabel("Set Serial Port:")
+        layout_h.setSpacing(8)
+        self.com_label = QLabel("Serial Port:")
+        self.com_label.setMinimumWidth(80)
         layout_h.addWidget(self.com_label)
         self.com_port = QComboBox()
         self.com_port.setEditable(True)
         self.com_port.addItems(get_serial_ports())
+        self.com_port.setObjectName("serialCombo")
         layout_h.addWidget(self.com_port)
         layout.addLayout(layout_h)
 
+        # Firmware file selection
         layout_h = QHBoxLayout()
-        self.file_label = QLabel("Select Firmware File:")
+        layout_h.setSpacing(8)
+        self.file_label = QLabel("Firmware File:")
+        self.file_label.setMinimumWidth(80)
         layout_h.addWidget(self.file_label)
         self.file_path = QLineEdit()
-        layout_h.addWidget(self.file_path)
+        self.file_path.setObjectName("filePath")
+        self.file_path.setPlaceholderText("Select firmware file...")
+        layout_h.addWidget(self.file_path, 1)
         self.browse_button = QPushButton("Browse")
+        self.browse_button.setObjectName("browseButton")
         self.browse_button.clicked.connect(self.browse_file)
         layout_h.addWidget(self.browse_button)
         layout.addLayout(layout_h)
 
+        # Mode selection
         self.simulation_checkbox = QCheckBox("Simulation Mode")
+        self.simulation_checkbox.setObjectName("simulationCheck")
         layout.addWidget(self.simulation_checkbox)
 
         self.debug_checkbox = QCheckBox("Debug Mode")
+        self.debug_checkbox.setObjectName("debugCheck")
         layout.addWidget(self.debug_checkbox)
 
+        # Action buttons
         layout_h = QHBoxLayout()
-        self.test_button = QPushButton("Test Connection")
+        layout_h.setSpacing(12)
+        self.test_button = QPushButton("🔍 Test Connection")
+        self.test_button.setObjectName("testButton")
         self.test_button.clicked.connect(self.test_connection)
         layout_h.addWidget(self.test_button)
-        self.start_button = QPushButton("Start Update")
+        self.start_button = QPushButton("🚀 Start Update")
+        self.start_button.setObjectName("startButton")
         self.start_button.clicked.connect(self.start_update)
         layout_h.addWidget(self.start_button)
         layout.addLayout(layout_h)
 
+        # Progress bar
         self.progress_bar = QProgressBar()
+        self.progress_bar.setObjectName("progressBar")
         layout.addWidget(self.progress_bar)
 
+        # Log output
         self.log_output = QTextEdit()
         self.log_output.setReadOnly(True)
+        self.log_output.setObjectName("logOutput")
         layout.addWidget(self.log_output)
 
         self.status_bar = QStatusBar(self)
@@ -208,44 +234,139 @@ class FirmwareUpdateGUI(QWidget):
 
         self.setLayout(layout)
 
-        # Set up the media player
-        self.player = QMediaPlayer()
-        self.audio_output = QAudioOutput()
-        self.player.setAudioOutput(self.audio_output)
+        # Set up cursors for better visibility
+        self.setup_cursors()
+        
+        # Set up banner animation
+        self.setup_banner_animation()
+        
+        # Set up the media player and play chiptune
+        self.setup_music()
 
-        # Set the file path for the tune
-        file_url = QUrl.fromLocalFile(resource_path("chiptune.mp3"))
-        self.player.setSource(file_url)
+    def create_banner_text(self):
+        """Create banner text programmatically with proper character counts"""
+        # Banner configuration
+        title = f"Brightway Flasher v{__version__}"
+        subtitle = "by ScooterTeam"
+        
+        # Calculate total width (using current banner as reference)
+        total_width = 58  # Total characters per line
+        
+        # Calculate padding for center alignment
+        title_padding = (total_width - 2 - len(title)) // 2  # -2 for ║ characters
+        subtitle_padding = (total_width - 2 - len(subtitle)) // 2
+        
+        # Create lines
+        top_line = "╔" + "═" * (total_width - 2) + "╗"
+        title_line = "║" + " " * title_padding + title + " " * (total_width - 2 - title_padding - len(title)) + "║"
+        subtitle_line = "║" + " " * subtitle_padding + subtitle + " " * (total_width - 2 - subtitle_padding - len(subtitle)) + "║"
+        bottom_line = "╚" + "═" * (total_width - 2) + "╝"
+        
+        return f"{top_line}\n{title_line}\n{subtitle_line}\n{bottom_line}"
 
-        # Play the audio
-        self.player.play()
+    def setup_cursors(self):
+        """Set up proper cursors for better visibility on all devices"""
+        # Set default cursor for the main window
+        self.setCursor(Qt.ArrowCursor)
+        
+        # Set text cursor for input fields
+        self.file_path.setCursor(Qt.IBeamCursor)
+        self.com_port.setCursor(Qt.IBeamCursor)
+        self.log_output.setCursor(Qt.IBeamCursor)
+        
+        # Set pointer cursor for clickable elements
+        self.browse_button.setCursor(Qt.PointingHandCursor)
+        self.test_button.setCursor(Qt.PointingHandCursor)
+        self.start_button.setCursor(Qt.PointingHandCursor)
+        self.simulation_checkbox.setCursor(Qt.PointingHandCursor)
+        self.debug_checkbox.setCursor(Qt.PointingHandCursor)
 
-        # Set up animation
-        self.animation_index = 0
-        self.animation_dir = 1
-        self.animation_frames = []
-        self.setup_animation()
+    def setup_banner_animation(self):
+        """Set up Knight Rider-style banner animation"""
+        # Animation state
+        self.animation_position = 0
+        self.animation_direction = 1  # 1 for right, -1 for left
+        self.animation_speed = 100  # milliseconds between updates
+        
+        # Create timer for animation
+        self.animation_timer = QTimer()
+        self.animation_timer.timeout.connect(self.update_banner_animation)
+        self.animation_timer.start(self.animation_speed)
+        
+        # Initial animation update
+        self.update_banner_animation()
 
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_animation)
-        self.timer.start(50)  # Adjust to control speed of the animation
+    def update_banner_animation(self):
+        """Update the Knight Rider-style animation"""
+        # Get the base banner text
+        base_text = self.create_banner_text()
+        lines = base_text.split('\n')
+        
+        # Animation bar characters (Knight Rider style)
+        bar_chars = ['█', '▓', '▒', '░', ' ']  # Solid to transparent
+        
+        # Calculate animation position (0 to banner width)
+        banner_width = 58
+        self.animation_position += self.animation_direction
+        
+        # Reverse direction at edges
+        if self.animation_position >= banner_width - 1:
+            self.animation_direction = -1
+        elif self.animation_position <= 0:
+            self.animation_direction = 1
+        
+        # Create animated banner
+        animated_lines = []
+        for i, line in enumerate(lines):
+            if i == 1:  # Title line - add animation bar
+                animated_line = self.create_animated_line(line, self.animation_position, bar_chars)
+                animated_lines.append(animated_line)
+            else:
+                animated_lines.append(line)
+        
+        # Update the banner text
+        self.heading_label.setText('\n'.join(animated_lines))
+
+    def create_animated_line(self, base_line, position, bar_chars):
+        """Create a line with Knight Rider-style animation bar"""
+        # Convert line to list for manipulation
+        line_chars = list(base_line)
+        
+        # Add animation bar at the current position
+        if 0 <= position < len(line_chars):
+            # Create gradient effect
+            for i, char in enumerate(bar_chars):
+                pos = position - i
+                if 0 <= pos < len(line_chars) and line_chars[pos] == ' ':
+                    line_chars[pos] = char
+        
+        return ''.join(line_chars)
+
+    def setup_music(self):
+        """Set up and play the chiptune music"""
+        try:
+            # Set up the media player
+            self.player = QMediaPlayer()
+            self.audio_output = QAudioOutput()
+            self.player.setAudioOutput(self.audio_output)
+
+            # Set the file path for the tune
+            file_url = QUrl.fromLocalFile(resource_path("chiptune.mp3"))
+            self.player.setSource(file_url)
+
+            # Play the audio
+            self.player.play()
+        except Exception as e:
+            # Silently handle music errors to avoid breaking the app
+            pass
 
     def setup_animation(self):
-        for i in range(len(self.heading_text)):
-            self.animation_frames += [
-                self.heading_text[:i] +
-                self.heading_text[i].upper() +
-                self.heading_text[i+1:]
-            ]
+        # Animation removed - kept for compatibility
+        pass
 
     def update_animation(self):
-        # Cycle through the animation frames and update the label
-        self.heading_label.setText(self.animation_frames[self.animation_index])
-        if self.animation_index == len(self.animation_frames) - 1:
-            self.animation_dir = -1
-        elif self.animation_index == 0:
-            self.animation_dir = 1
-        self.animation_index = self.animation_index + self.animation_dir
+        # Animation removed - kept for compatibility
+        pass
 
     def browse_file(self):
         file, _ = QFileDialog.getOpenFileName(

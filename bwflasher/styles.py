@@ -189,15 +189,22 @@ QCheckBox::indicator {
     background: #0d1117;
 }
 
-QCheckBox::indicator:checked {
-    background: #0ea5e9;
-    border: 1px solid #0ea5e9;
-}
-
 QCheckBox::indicator:hover {
     border: 1px solid #0ea5e9;
     background: #161b22;
 }
+
+QCheckBox::indicator:checked {
+    background: #0ea5e9;
+    border: 1px solid #0ea5e9;
+    image: url(data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTAiIGhlaWdodD0iOCIgdmlld0JveD0iMCAwIDEwIDgiIGZpbGw9Im5vbmUiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+CjxwYXRoIGQ9Ik0xIDMuOEwzLjggNi42TDkgMSIgc3Ryb2tlPSIjMGQxMTE3IiBzdHJva2Utd2lkdGg9IjIiIHN0cm9rZS1saW5lY2FwPSJyb3VuZCIgc3Ryb2tlLWxpbmVqb2luPSJyb3VuZCIvPgo8L3N2Zz4K);
+}
+
+QCheckBox::indicator:checked:hover {
+    background: #38bdf8;
+    border: 1px solid #38bdf8;
+}
+
 
 /* Status Bar */
 QStatusBar {
@@ -257,6 +264,146 @@ QMessageBox {
 QMessageBox QPushButton {
     min-width: 80px;
     min-height: 24px;
+}
+
+/* File Dialog - Guaranteed Dark Theme */
+QFileDialog {
+    background: #0d1117;
+    color: #e6e6e6;
+}
+
+QFileDialog QListView {
+    background: #0d1117;
+    color: #e6e6e6;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+}
+
+QFileDialog QListView::item {
+    background: #0d1117;
+    color: #e6e6e6;
+    padding: 4px;
+}
+
+QFileDialog QListView::item:selected {
+    background: #0ea5e9;
+    color: #ffffff;
+}
+
+QFileDialog QListView::item:hover {
+    background: #161b22;
+    color: #e6e6e6;
+}
+
+QFileDialog QLineEdit {
+    background: #0d1117;
+    color: #e6e6e6;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    padding: 6px 10px;
+}
+
+QFileDialog QLineEdit:focus {
+    border: 1px solid #0ea5e9;
+    background: #161b22;
+}
+
+QFileDialog QPushButton {
+    background: #21262d;
+    color: #e6e6e6;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    padding: 8px 16px;
+    min-width: 80px;
+    min-height: 24px;
+}
+
+QFileDialog QPushButton:hover {
+    background: #30363d;
+    border: 1px solid #0ea5e9;
+    color: #0ea5e9;
+}
+
+QFileDialog QPushButton:pressed {
+    background: #0d1117;
+    border: 1px solid #0ea5e9;
+    color: #0ea5e9;
+}
+
+QFileDialog QComboBox {
+    background: #0d1117;
+    color: #e6e6e6;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    padding: 6px 10px;
+}
+
+QFileDialog QComboBox:focus {
+    border: 1px solid #0ea5e9;
+    background: #161b22;
+}
+
+QFileDialog QComboBox::drop-down {
+    border: none;
+    width: 20px;
+}
+
+QFileDialog QComboBox::down-arrow {
+    image: none;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+    border-top: 4px solid #0ea5e9;
+    margin-right: 4px;
+}
+
+QFileDialog QComboBox QAbstractItemView {
+    background: #0d1117;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    selection-background-color: #0ea5e9;
+    color: #e6e6e6;
+    outline: none;
+}
+
+QFileDialog QLabel {
+    color: #e6e6e6;
+    font-size: 9pt;
+    font-weight: 400;
+}
+
+QFileDialog QTreeView {
+    background: #0d1117;
+    color: #e6e6e6;
+    border: 1px solid #30363d;
+    border-radius: 4px;
+}
+
+QFileDialog QTreeView::item {
+    background: #0d1117;
+    color: #e6e6e6;
+    padding: 2px;
+}
+
+QFileDialog QTreeView::item:selected {
+    background: #0ea5e9;
+    color: #ffffff;
+}
+
+QFileDialog QTreeView::item:hover {
+    background: #161b22;
+    color: #e6e6e6;
+}
+
+QFileDialog QHeaderView::section {
+    background: #161b22;
+    color: #e6e6e6;
+    border: 1px solid #30363d;
+    padding: 4px;
+}
+
+QFileDialog QHeaderView::section:hover {
+    background: #21262d;
+    color: #0ea5e9;
 }
 
 /* Checkbox glow when checked */

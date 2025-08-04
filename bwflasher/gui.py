@@ -30,13 +30,14 @@ from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QProgressBar, QFileDialog, QCheckBox, QTextEdit, QStatusBar, QComboBox, QMessageBox
 )
-from PySide6.QtGui import QPalette, QIcon, QColor
+from PySide6.QtGui import QPalette, QIcon, QColor, QCursor
 from PySide6.QtCore import Qt, QThread, Signal, QUrl, QTimer
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 
 from bwflasher.flash_uart import DFU, FlasherException
 from bwflasher.updater import check_update, get_name
 from bwflasher.styles import DARK_THEME_STYLESHEET, COLOR_PALETTE
+from bwflasher.version import __version__
 
 OS = platform.system()
 
@@ -154,10 +155,16 @@ class FirmwareUpdateGUI(QWidget):
         layout.setSpacing(8)
         layout.setContentsMargins(16, 16, 16, 16)
 
-        self.heading_text = "╔══════════════════════════════════════════════════════════════╗\n║                    Brightway Flasher v0.5.2                    ║\n║                        by ScooterTeam                          ║\n╚══════════════════════════════════════════════════════════════╝"
+        # Create banner text programmatically
+        self.heading_text = self.create_banner_text()
         self.heading_label = QLabel(self.heading_text, self)
         self.heading_label.setAlignment(Qt.AlignCenter)
         self.heading_label.setObjectName("titleLabel")
+        # Set monospace font for proper ASCII art alignment
+        from PySide6.QtGui import QFont
+        monospace_font = QFont("JetBrains Mono", 10)
+        monospace_font.setStyleHint(QFont.Monospace)
+        self.heading_label.setFont(monospace_font)
         layout.addWidget(self.heading_label)
 
         # Serial port selection
@@ -227,6 +234,30 @@ class FirmwareUpdateGUI(QWidget):
 
         self.setLayout(layout)
 
+        # Set up cursors for better visibility
+        self.setup_cursors()
+
+    def create_banner_text(self):
+        """Create banner text programmatically with proper character counts"""
+        # Banner configuration
+        title = f"Brightway Flasher v{__version__}"
+        subtitle = "by ScooterTeam"
+        
+        # Calculate total width (using current banner as reference)
+        total_width = 58  # Total characters per line
+        
+        # Calculate padding for center alignment
+        title_padding = (total_width - 2 - len(title)) // 2  # -2 for ║ characters
+        subtitle_padding = (total_width - 2 - len(subtitle)) // 2
+        
+        # Create lines
+        top_line = "╔" + "═" * (total_width - 2) + "╗"
+        title_line = "║" + " " * title_padding + title + " " * (total_width - 2 - title_padding - len(title)) + "║"
+        subtitle_line = "║" + " " * subtitle_padding + subtitle + " " * (total_width - 2 - subtitle_padding - len(subtitle)) + "║"
+        bottom_line = "╚" + "═" * (total_width - 2) + "╝"
+        
+        return f"{top_line}\n{title_line}\n{subtitle_line}\n{bottom_line}"
+
         # Set up the media player
         self.player = QMediaPlayer()
         self.audio_output = QAudioOutput()
@@ -241,6 +272,23 @@ class FirmwareUpdateGUI(QWidget):
 
         # Set static banner (no animation)
         self.heading_label.setText(self.heading_text)
+
+    def setup_cursors(self):
+        """Set up proper cursors for better visibility on all devices"""
+        # Set default cursor for the main window
+        self.setCursor(Qt.ArrowCursor)
+        
+        # Set text cursor for input fields
+        self.file_path.setCursor(Qt.IBeamCursor)
+        self.com_port.setCursor(Qt.IBeamCursor)
+        self.log_output.setCursor(Qt.IBeamCursor)
+        
+        # Set pointer cursor for clickable elements
+        self.browse_button.setCursor(Qt.PointingHandCursor)
+        self.test_button.setCursor(Qt.PointingHandCursor)
+        self.start_button.setCursor(Qt.PointingHandCursor)
+        self.simulation_checkbox.setCursor(Qt.PointingHandCursor)
+        self.debug_checkbox.setCursor(Qt.PointingHandCursor)
 
     def setup_animation(self):
         # Animation removed - kept for compatibility

@@ -9,7 +9,7 @@ DARK_THEME_STYLESHEET = """
 /* Professional 'Terminal' Theme for BWFlasher */
 QWidget {
     font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
-    font-size: 9pt;
+    font-size: 12pt;
     color: #e6e6e6;
     font-weight: 400;
 }
@@ -23,7 +23,7 @@ QWidget#mainWindow {
 
 /* Application Title */
 QLabel#titleLabel {
-    font-size: 14px;
+    font-size: 17px;
     font-weight: 600;
     color: #0ea5e9;
     padding: 12px 16px;
@@ -50,17 +50,17 @@ QPushButton#browseButton {
 
 QPushButton#testButton, QPushButton#startButton {
     min-width: 140px;
-    font-size: 11pt;
+    font-size: 12pt;
 }
 
 QProgressBar#progressBar {
     min-height: 30px;
-    font-size: 11pt;
+    font-size: 12pt;
 }
 
 QTextEdit#logOutput {
     min-height: 200px;
-    font-size: 9pt;
+    font-size: 12pt;
 }
 
 /* Input Fields */
@@ -70,7 +70,7 @@ QLineEdit, QComboBox {
     padding: 6px 10px;
     background: #0d1117;
     color: #e6e6e6;
-    font-size: 9pt;
+    font-size: 12pt;
     font-weight: 400;
     selection-background-color: #58a6ff;
 }
@@ -115,7 +115,7 @@ QPushButton {
     background: #21262d;
     color: #e6e6e6;
     font-weight: 500;
-    font-size: 9pt;
+    font-size: 12pt;
     min-width: 100px;
     min-height: 28px;
 }
@@ -177,7 +177,7 @@ QTextEdit:focus {
 QCheckBox {
     spacing: 8px;
     color: #e6e6e6;
-    font-size: 9pt;
+    font-size: 12pt;
     font-weight: 400;
 }
 
@@ -219,7 +219,7 @@ QStatusBar {
 /* Labels */
 QLabel {
     color: #e6e6e6;
-    font-size: 9pt;
+    font-size: 12pt;
     font-weight: 400;
 }
 
@@ -367,7 +367,7 @@ QFileDialog QComboBox QAbstractItemView {
 
 QFileDialog QLabel {
     color: #e6e6e6;
-    font-size: 9pt;
+    font-size: 12pt;
     font-weight: 400;
 }
 

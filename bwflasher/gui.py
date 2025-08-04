@@ -236,6 +236,12 @@ class FirmwareUpdateGUI(QWidget):
 
         # Set up cursors for better visibility
         self.setup_cursors()
+        
+        # Set up banner animation
+        self.setup_banner_animation()
+        
+        # Set up the media player and play chiptune
+        self.setup_music()
 
     def create_banner_text(self):
         """Create banner text programmatically with proper character counts"""
@@ -258,21 +264,6 @@ class FirmwareUpdateGUI(QWidget):
         
         return f"{top_line}\n{title_line}\n{subtitle_line}\n{bottom_line}"
 
-        # Set up the media player
-        self.player = QMediaPlayer()
-        self.audio_output = QAudioOutput()
-        self.player.setAudioOutput(self.audio_output)
-
-        # Set the file path for the tune
-        file_url = QUrl.fromLocalFile(resource_path("chiptune.mp3"))
-        self.player.setSource(file_url)
-
-        # Play the audio
-        self.player.play()
-
-        # Set static banner (no animation)
-        self.heading_label.setText(self.heading_text)
-
     def setup_cursors(self):
         """Set up proper cursors for better visibility on all devices"""
         # Set default cursor for the main window
@@ -289,6 +280,85 @@ class FirmwareUpdateGUI(QWidget):
         self.start_button.setCursor(Qt.PointingHandCursor)
         self.simulation_checkbox.setCursor(Qt.PointingHandCursor)
         self.debug_checkbox.setCursor(Qt.PointingHandCursor)
+
+    def setup_banner_animation(self):
+        """Set up Knight Rider-style banner animation"""
+        # Animation state
+        self.animation_position = 0
+        self.animation_direction = 1  # 1 for right, -1 for left
+        self.animation_speed = 100  # milliseconds between updates
+        
+        # Create timer for animation
+        self.animation_timer = QTimer()
+        self.animation_timer.timeout.connect(self.update_banner_animation)
+        self.animation_timer.start(self.animation_speed)
+        
+        # Initial animation update
+        self.update_banner_animation()
+
+    def update_banner_animation(self):
+        """Update the Knight Rider-style animation"""
+        # Get the base banner text
+        base_text = self.create_banner_text()
+        lines = base_text.split('\n')
+        
+        # Animation bar characters (Knight Rider style)
+        bar_chars = ['█', '▓', '▒', '░', ' ']  # Solid to transparent
+        
+        # Calculate animation position (0 to banner width)
+        banner_width = 58
+        self.animation_position += self.animation_direction
+        
+        # Reverse direction at edges
+        if self.animation_position >= banner_width - 1:
+            self.animation_direction = -1
+        elif self.animation_position <= 0:
+            self.animation_direction = 1
+        
+        # Create animated banner
+        animated_lines = []
+        for i, line in enumerate(lines):
+            if i == 1:  # Title line - add animation bar
+                animated_line = self.create_animated_line(line, self.animation_position, bar_chars)
+                animated_lines.append(animated_line)
+            else:
+                animated_lines.append(line)
+        
+        # Update the banner text
+        self.heading_label.setText('\n'.join(animated_lines))
+
+    def create_animated_line(self, base_line, position, bar_chars):
+        """Create a line with Knight Rider-style animation bar"""
+        # Convert line to list for manipulation
+        line_chars = list(base_line)
+        
+        # Add animation bar at the current position
+        if 0 <= position < len(line_chars):
+            # Create gradient effect
+            for i, char in enumerate(bar_chars):
+                pos = position - i
+                if 0 <= pos < len(line_chars) and line_chars[pos] == ' ':
+                    line_chars[pos] = char
+        
+        return ''.join(line_chars)
+
+    def setup_music(self):
+        """Set up and play the chiptune music"""
+        try:
+            # Set up the media player
+            self.player = QMediaPlayer()
+            self.audio_output = QAudioOutput()
+            self.player.setAudioOutput(self.audio_output)
+
+            # Set the file path for the tune
+            file_url = QUrl.fromLocalFile(resource_path("chiptune.mp3"))
+            self.player.setSource(file_url)
+
+            # Play the audio
+            self.player.play()
+        except Exception as e:
+            # Silently handle music errors to avoid breaking the app
+            pass
 
     def setup_animation(self):
         # Animation removed - kept for compatibility

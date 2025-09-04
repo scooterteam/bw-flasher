@@ -9,4 +9,4 @@ PySide6_Essentials==6.8.0.2
 setuptools==78.1.1
 shiboken6==6.8.0.2
 tqdm==4.67.0
-requests==2.32.3
+requests==2.32.4

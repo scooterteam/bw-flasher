@@ -222,14 +222,14 @@ class DFU:
             ]
             if response[1] == cmd_get_uid[1] and response[2] == 0x10:
                 self.uid = response[3:3+0x10]
-                self.log("> Got UID: " + self.uid.decode())
+                self.log("> Got UID: " + self.uid.decode(errors='replace'))
                 self.state = DFUState.VER_INIT
 
     def get_ver(self):
         self.send(b'down get_ver\r')
         response = self.receive_response(5)
         if b'\r' in response[-2:]:
-            ver = response.split(b'\r')[0].decode()
+            ver = response.split(b'\r')[0].decode(errors='replace')
             if self.state == DFUState.VER_INIT:
                 self.log("> MCU Version (before): " + ver)
                 self.state = DFUState.INIT

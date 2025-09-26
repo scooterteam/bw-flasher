@@ -58,7 +58,7 @@ def get_serial_ports():
     if OS == "Windows":
         return [port[0] for port in ports] if ports else []
     else:
-        prefix = "/dev/ttyUSB" if OS == "Linux" else "/dev/tty.usb"
+        prefix = "/dev/ttyUSB" if OS == "Linux" else "/dev/cu.usbserial"
         return [port[0] for port in ports if port[0].startswith(prefix)] if ports else []
 
 

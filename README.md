@@ -1,7 +1,7 @@
 # bw-flasher
 Flashing Brightway controllers using the UART.
 
-![Screenshot](resources/screenshot_v0.5.3.png)
+![Screenshot](resources/screenshot_v0.5.4.png)
 
 ## Terms of use
 This code / tool is provided for **personal and non-commercial use only**. By using this code / tool, you agree not to use it for any commercial purposes, including but not limited to selling, distributing, or integrating it into any product or service intended for monetary gain.

@@ -20,17 +20,18 @@
 
 import serial.tools.list_ports
 import sys
-import os
+import os, sys
 import platform
 import webbrowser
 import requests
+from bwpatcher.utils import patch_firmware
 
 from serial.serialutil import SerialException
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QProgressBar, QFileDialog, QCheckBox, QTextEdit, QStatusBar, QComboBox, QMessageBox
+    QProgressBar, QFileDialog, QCheckBox, QTextEdit, QStatusBar, QComboBox, QMessageBox, QSlider
 )
-from PySide6.QtGui import QPalette, QIcon, QColor, QCursor
+from PySide6.QtGui import QPalette, QIcon, QColor, QCursor, QFont
 from PySide6.QtCore import Qt, QThread, Signal, QUrl, QTimer
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 
@@ -43,22 +44,18 @@ OS = platform.system()
 
 
 def resource_path(relative_path):
-    """ Get absolute path to resource, works for dev and for PyInstaller """
-    try:
-        # PyInstaller creates a temp folder and stores path in _MEIPASS
-        base_path = sys._MEIPASS
-    except Exception:
+    if hasattr(sys, "_MEIPASS"):
+        base_path = sys._MEIPASS  # Temp-Ordner der EXE
+    else:
         base_path = os.path.abspath(".")
-
-    return os.path.join(base_path, "resources", relative_path)
-
+    return os.path.join(base_path, relative_path)
 
 def get_serial_ports():
     ports = serial.tools.list_ports.comports()
     if OS == "Windows":
         return [port[0] for port in ports] if ports else []
     else:
-        prefix = "/dev/ttyUSB" if OS == "Linux" else "/dev/cu.usbserial"
+        prefix = "/dev/ttyUSB" if OS == "Linux" else "/dev/tty.usb"
         return [port[0] for port in ports if port[0].startswith(prefix)] if ports else []
 
 
@@ -86,9 +83,6 @@ class BaseThread(QThread):
 
 
 class FirmwareUpdateThread(BaseThread):
-    def __init__(self, com_port, firmware_file, simulation, debug, parent=None):
-        super().__init__(com_port, firmware_file, simulation, debug, parent)
-
     def run(self):
         try:
             updater = DFU(
@@ -110,9 +104,6 @@ class FirmwareUpdateThread(BaseThread):
 
 
 class TestConnectionThread(BaseThread):
-    def __init__(self, com_port, firmware_file, simulation, debug, parent=None):
-        super().__init__(com_port, firmware_file, simulation, debug, parent)
-
     def run(self):
         try:
             updater = DFU(
@@ -140,28 +131,19 @@ class FirmwareUpdateGUI(QWidget):
 
         self.setWindowTitle(self.window_name)
         self.setWindowIcon(QIcon(resource_path("app.ico")))
-
-        # Set object name for styling
         self.setObjectName("mainWindow")
-
-        # Set the modern dark theme stylesheet
         self.setStyleSheet(DARK_THEME_STYLESHEET)
-        
-        self.check_update()
-        self.disclaimer_messagebox()
 
         self.setGeometry(100, 100, 600, 500)
         layout = QVBoxLayout()
         layout.setSpacing(8)
         layout.setContentsMargins(16, 16, 16, 16)
 
-        # Create banner text programmatically
+        # Banner
         self.heading_text = self.create_banner_text()
         self.heading_label = QLabel(self.heading_text, self)
         self.heading_label.setAlignment(Qt.AlignCenter)
         self.heading_label.setObjectName("titleLabel")
-        # Set monospace font for proper ASCII art alignment
-        from PySide6.QtGui import QFont
         monospace_font = QFont("JetBrains Mono", 10)
         monospace_font.setStyleHint(QFont.Monospace)
         self.heading_label.setFont(monospace_font)
@@ -179,24 +161,104 @@ class FirmwareUpdateGUI(QWidget):
         self.com_port.setObjectName("serialCombo")
         layout_h.addWidget(self.com_port)
         layout.addLayout(layout_h)
+        layout.addSpacing(5)  # 20 Pixel vertikal
 
-        # Firmware file selection
+        # ------------------ Patcher ------------------
+
+        # Scooter model selection
         layout_h = QHBoxLayout()
         layout_h.setSpacing(8)
-        self.file_label = QLabel("Firmware File:")
-        self.file_label.setMinimumWidth(80)
-        layout_h.addWidget(self.file_label)
-        self.file_path = QLineEdit()
-        self.file_path.setObjectName("filePath")
-        self.file_path.setPlaceholderText("Select firmware file...")
-        layout_h.addWidget(self.file_path, 1)
-        self.browse_button = QPushButton("Browse")
-        self.browse_button.setObjectName("browseButton")
-        self.browse_button.clicked.connect(self.browse_file)
-        layout_h.addWidget(self.browse_button)
+        self.scooter_label = QLabel("Scooter Model:")
+        self.scooter_label.setMinimumWidth(100)
+        layout_h.addWidget(self.scooter_label)
+        self.scooter_combo = QComboBox()
+        self.scooter_combo.addItems(["Mi4Pro2nd", "Mi5", "Mi5Pro", "Mi5Max"])
+        self.scooter_combo.setObjectName("scooterCombo")
+        layout_h.addWidget(self.scooter_combo)
         layout.addLayout(layout_h)
 
-        # Mode selection
+        # SLS
+        self.sls_checkbox = QCheckBox("Speed Limit Sport (SLS)")
+        self.sls_checkbox.setObjectName("slsCheck")
+        self.sls_checkbox.stateChanged.connect(self.toggle_sls_slider)
+        layout.addWidget(self.sls_checkbox)
+
+        layout_h = QHBoxLayout()
+        self.sls_label = QLabel("SLS Speed:")
+        self.sls_label.setMinimumWidth(100)
+        layout_h.addWidget(self.sls_label)
+
+        self.sls_slider = QSlider(Qt.Horizontal)
+        self.sls_slider.setMinimum(10)    
+        self.sls_slider.setMaximum(395)   
+        self.sls_slider.setValue(250)     
+        self.sls_slider.valueChanged.connect(self.update_sls_label)
+        layout_h.addWidget(self.sls_slider, 1)
+
+        self.sls_value_label = QLabel(f"{self.sls_slider.value()/10:.1f}")
+        layout_h.addWidget(self.sls_value_label)
+        layout.addLayout(layout_h)
+        self.toggle_sls_slider()
+
+        # SLD
+        self.sld_checkbox = QCheckBox("Speed Limit Default (SLD)")
+        self.sld_checkbox.setObjectName("sldCheck")
+        self.sld_checkbox.stateChanged.connect(self.toggle_sld_slider)
+        layout.addWidget(self.sld_checkbox)
+
+        layout_h = QHBoxLayout()
+        self.sld_label = QLabel("SLD Speed:")
+        self.sld_label.setMinimumWidth(100)
+        layout_h.addWidget(self.sld_label)
+
+        self.sld_slider = QSlider(Qt.Horizontal)
+        self.sld_slider.setMinimum(10)     
+        self.sld_slider.setMaximum(395)    
+        self.sld_slider.setValue(150)      
+        self.sld_slider.valueChanged.connect(self.update_sld_label)
+        layout_h.addWidget(self.sld_slider, 1)
+
+        self.sld_value_label = QLabel(f"{self.sld_slider.value()/10:.1f}")
+        layout_h.addWidget(self.sld_value_label)
+        layout.addLayout(layout_h)
+        self.toggle_sld_slider()
+
+        # MSS 
+        self.mss_checkbox = QCheckBox("Enable Motor Startspeed (MSS)")
+        self.mss_checkbox.setObjectName("mssCheck")
+        self.mss_checkbox.stateChanged.connect(self.toggle_mss_slider)
+        layout.addWidget(self.mss_checkbox)
+
+        layout_h = QHBoxLayout()
+        self.mss_label = QLabel("MSS Speed:")
+        self.mss_label.setMinimumWidth(100)
+        layout_h.addWidget(self.mss_label)
+
+        self.mss_slider = QSlider(Qt.Horizontal)
+        self.mss_slider.setMinimum(10)     
+        self.mss_slider.setMaximum(100)    
+        self.mss_slider.setValue(60)      
+        self.mss_slider.valueChanged.connect(self.update_mss_label)
+        layout_h.addWidget(self.mss_slider, 1)
+
+        self.mss_value_label = QLabel(f"{self.mss_slider.value()/10:.1f}")
+        layout_h.addWidget(self.mss_value_label)
+        layout.addLayout(layout_h)
+        self.toggle_mss_slider()
+
+        # CCE
+        self.cce_checkbox = QCheckBox("Cruise Controll Enabled (CCE)")
+        self.cce_checkbox.setObjectName("cce")
+        layout.addWidget(self.cce_checkbox)
+
+        # Load and Patch the Firmware
+        self.load_button = QPushButton("Load Firmware")
+        self.load_button.clicked.connect(self.patch)
+        layout.addWidget(self.load_button)
+
+        layout.addSpacing(10)  
+
+        # Simulation and Debug
         self.simulation_checkbox = QCheckBox("Simulation Mode")
         self.simulation_checkbox.setObjectName("simulationCheck")
         layout.addWidget(self.simulation_checkbox)
@@ -212,6 +274,7 @@ class FirmwareUpdateGUI(QWidget):
         self.test_button.setObjectName("testButton")
         self.test_button.clicked.connect(self.test_connection)
         layout_h.addWidget(self.test_button)
+
         self.start_button = QPushButton("🚀 Start Update")
         self.start_button.setObjectName("startButton")
         self.start_button.clicked.connect(self.start_update)
@@ -234,163 +297,183 @@ class FirmwareUpdateGUI(QWidget):
 
         self.setLayout(layout)
 
-        # Set up cursors for better visibility
+        # Cursors, animation, music
         self.setup_cursors()
-        
-        # Set up banner animation
         self.setup_banner_animation()
-        
-        # Set up the media player and play chiptune
         self.setup_music()
+        
+    def patch(self):
+        patches = []
+        scooter_model = self.scooter_combo.currentText()  
 
+        model_file_map = {
+            "Mi4Pro2nd": "4Pro2ndGen.bin",
+            "Mi5": "5.bin",
+            "Mi5Max": "5Max.bin",
+            "Mi5Pro": "5Pro.bin"
+        }
+
+        if scooter_model not in model_file_map:
+            print(f"Unknown model: {scooter_model}")
+            return
+
+        firmware_path = resource_path(os.path.join("Firmwares", model_file_map[scooter_model]))
+
+        if not os.path.isfile(firmware_path):
+            print(f"Firmware file not found: {firmware_path}")
+            return
+        
+        with open(firmware_path, "rb") as f:
+            input_firmware = f.read()
+
+        if self.sls_checkbox.isChecked():
+            patches.append(f"sls={self.sls_slider.value()/10.0}")
+        if self.sld_checkbox.isChecked():
+            patches.append(f"sld={self.sld_slider.value()/10.0}")
+        if self.mss_checkbox.isChecked():
+            patches.append(f"mss={self.mss_slider.value()/10.0}")
+        if self.cce_checkbox.isChecked():
+            patches.append(f"cce")
+        
+        if not patches or patches[-1] != "chk":
+            patches.append("chk")
+
+        print(f"Loading Firmware for {scooter_model}, Patches: {patches}")
+
+        patched_firmware = patch_firmware(scooter_model, input_firmware, patches)
+
+        if getattr(sys, 'frozen', False):
+            base_dir = os.path.dirname(sys.executable)
+        else:
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+
+        output_path = os.path.join(base_dir, "patched_firmware.bin")
+        with open(output_path, "wb") as f:
+            f.write(patched_firmware)
+
+        print(f"Patched firmware saved to: {output_path}")
+
+    def toggle_sls_slider(self):
+        visible = self.sls_checkbox.isChecked()
+        self.sls_slider.setVisible(visible)
+        self.sls_value_label.setVisible(visible)
+        self.sls_label.setVisible(visible)
+
+    def update_sls_label(self):
+        value = self.sls_slider.value() / 10.0
+        self.sls_value_label.setText(f"{value:.1f}")
+
+    def toggle_sld_slider(self):
+        visible = self.sld_checkbox.isChecked()
+        self.sld_slider.setVisible(visible)
+        self.sld_value_label.setVisible(visible)
+        self.sld_label.setVisible(visible)
+
+    def update_sld_label(self):
+        value = self.sld_slider.value() / 10.0
+        self.sld_value_label.setText(f"{value:.1f}")
+
+    def toggle_mss_slider(self):
+        visible = self.mss_checkbox.isChecked()
+        self.mss_slider.setVisible(visible)
+        self.mss_value_label.setVisible(visible)
+        self.mss_label.setVisible(visible)
+
+    def update_mss_label(self):
+        value = self.mss_slider.value() / 10.0
+        self.mss_value_label.setText(f"{value:.1f}")
+
+    # ------------------- Banner -------------------
     def create_banner_text(self):
-        """Create banner text programmatically with proper character counts"""
-        # Banner configuration
         title = f"Brightway Flasher v{__version__}"
         subtitle = "by ScooterTeam"
-        
-        # Calculate total width (using current banner as reference)
-        total_width = 58  # Total characters per line
-        
-        # Calculate padding for center alignment
-        title_padding = (total_width - 2 - len(title)) // 2  # -2 for ║ characters
+        total_width = 58
+        title_padding = (total_width - 2 - len(title)) // 2
         subtitle_padding = (total_width - 2 - len(subtitle)) // 2
-        
-        # Create lines
         top_line = "╔" + "═" * (total_width - 2) + "╗"
         title_line = "║" + " " * title_padding + title + " " * (total_width - 2 - title_padding - len(title)) + "║"
         subtitle_line = "║" + " " * subtitle_padding + subtitle + " " * (total_width - 2 - subtitle_padding - len(subtitle)) + "║"
         bottom_line = "╚" + "═" * (total_width - 2) + "╝"
-        
         return f"{top_line}\n{title_line}\n{subtitle_line}\n{bottom_line}"
 
     def setup_cursors(self):
-        """Set up proper cursors for better visibility on all devices"""
-        # Set default cursor for the main window
         self.setCursor(Qt.ArrowCursor)
-        
-        # Set text cursor for input fields
-        self.file_path.setCursor(Qt.IBeamCursor)
         self.com_port.setCursor(Qt.IBeamCursor)
         self.log_output.setCursor(Qt.IBeamCursor)
-        
-        # Set pointer cursor for clickable elements
-        self.browse_button.setCursor(Qt.PointingHandCursor)
         self.test_button.setCursor(Qt.PointingHandCursor)
         self.start_button.setCursor(Qt.PointingHandCursor)
         self.simulation_checkbox.setCursor(Qt.PointingHandCursor)
         self.debug_checkbox.setCursor(Qt.PointingHandCursor)
 
     def setup_banner_animation(self):
-        """Set up Knight Rider-style banner animation"""
-        # Animation state
         self.animation_position = 0
-        self.animation_direction = 1  # 1 for right, -1 for left
-        self.animation_speed = 100  # milliseconds between updates
-        
-        # Create timer for animation
+        self.animation_direction = 1
+        self.animation_speed = 100
         self.animation_timer = QTimer()
         self.animation_timer.timeout.connect(self.update_banner_animation)
         self.animation_timer.start(self.animation_speed)
-        
-        # Initial animation update
         self.update_banner_animation()
 
     def update_banner_animation(self):
-        """Update the Knight Rider-style animation"""
-        # Get the base banner text
         base_text = self.create_banner_text()
         lines = base_text.split('\n')
-        
-        # Animation bar characters (Knight Rider style)
-        bar_chars = ['█', '▓', '▒', '░', ' ']  # Solid to transparent
-        
-        # Calculate animation position (0 to banner width)
+        bar_chars = ['█', '▓', '▒', '░', ' ']
         banner_width = 58
         self.animation_position += self.animation_direction
-        
-        # Reverse direction at edges
         if self.animation_position >= banner_width - 1:
             self.animation_direction = -1
         elif self.animation_position <= 0:
             self.animation_direction = 1
-        
-        # Create animated banner
         animated_lines = []
         for i, line in enumerate(lines):
-            if i == 1:  # Title line - add animation bar
+            if i == 1:
                 animated_line = self.create_animated_line(line, self.animation_position, bar_chars)
                 animated_lines.append(animated_line)
             else:
                 animated_lines.append(line)
-        
-        # Update the banner text
         self.heading_label.setText('\n'.join(animated_lines))
 
     def create_animated_line(self, base_line, position, bar_chars):
-        """Create a line with Knight Rider-style animation bar"""
-        # Convert line to list for manipulation
         line_chars = list(base_line)
-        
-        # Add animation bar at the current position
         if 0 <= position < len(line_chars):
-            # Create gradient effect
             for i, char in enumerate(bar_chars):
                 pos = position - i
                 if 0 <= pos < len(line_chars) and line_chars[pos] == ' ':
                     line_chars[pos] = char
-        
         return ''.join(line_chars)
 
+    # ------------------- Music -------------------
     def setup_music(self):
-        """Set up and play the chiptune music"""
         try:
-            # Set up the media player
             self.player = QMediaPlayer()
             self.audio_output = QAudioOutput()
             self.player.setAudioOutput(self.audio_output)
-
-            # Set the file path for the tune
             file_url = QUrl.fromLocalFile(resource_path("chiptune.mp3"))
             self.player.setSource(file_url)
-
-            # Play the audio
             self.player.play()
-        except Exception as e:
-            # Silently handle music errors to avoid breaking the app
+        except Exception:
             pass
 
-    def setup_animation(self):
-        # Animation removed - kept for compatibility
-        pass
-
-    def update_animation(self):
-        # Animation removed - kept for compatibility
-        pass
-
-    def browse_file(self):
-        file, _ = QFileDialog.getOpenFileName(
-            self,
-            "Select Firmware File",
-            "",
-            "BIN Files (*.bin);;All Files (*)"
-        )
-        if file:
-            self.file_path.setText(file)
-
+    # ------------------- Connection / Update -------------------
     def test_connection(self):
         simulation = self.simulation_checkbox.isChecked()
         self.flasher_debug = self.debug_checkbox.isChecked()
         com_port = self.com_port.currentText()
-
         self.update_thread = TestConnectionThread(com_port, None, simulation, self.flasher_debug)
         self.start_thread()
 
     def start_update(self):
-        firmware_file = self.file_path.text()
-        if not firmware_file:
-            self.update_status("Please select a firmware file!")
-            return
+        if getattr(sys, 'frozen', False):
+            # wenn als EXE gestartet
+            base_dir = os.path.dirname(sys.executable)
+        else:
+            # wenn als normales Python-Script gestartet
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+
+        firmware_file = os.path.join(base_dir, "patched_firmware.bin")
+
+        if not os.path.isfile(firmware_file):
+            self.update_status("Please patch a Firmware!")
 
         simulation = self.simulation_checkbox.isChecked()
         self.flasher_debug = self.debug_checkbox.isChecked()
@@ -406,7 +489,6 @@ class FirmwareUpdateGUI(QWidget):
         self.update_thread.exception_signal.connect(self.exception_messagebox)
         self.log_output.clear()
         self.update_thread.start()
-
         self.test_button.setEnabled(False)
         self.start_button.setEnabled(False)
 
@@ -426,9 +508,7 @@ class FirmwareUpdateGUI(QWidget):
         self.log_output.append(message)
 
     def exception_messagebox(self, thread_signal: list):
-        error_type = thread_signal[0]
-        message = thread_signal[1]
-
+        error_type, message = thread_signal
         error_dialog = QMessageBox(self)
         error_dialog.setIcon(QMessageBox.Critical)
         error_dialog.setWindowTitle(f"{self.window_name} - {error_type} Error")
@@ -437,14 +517,17 @@ class FirmwareUpdateGUI(QWidget):
         self.test_button.setEnabled(True)
         self.start_button.setEnabled(True)
 
+    # ------------------- Disclaimer / Update -------------------
     def disclaimer_messagebox(self):
         messagebox = QMessageBox(self)
         messagebox.setIcon(QMessageBox.Warning)
         messagebox.setWindowTitle(f"{self.window_name} - Disclaimer")
-        messagebox.setText("Use of this tool is entirely at your own risk, as it is provided as-is without any "
-                           "guarantees or warranties. By using this tool, you agree not to use it for any commercial "
-                           "purposes, including but not limited to selling, distributing, or integrating it into any "
-                           "product or service intended for monetary gain.")
+        messagebox.setText(
+            "Use of this tool is entirely at your own risk, as it is provided as-is without any "
+            "guarantees or warranties. By using this tool, you agree not to use it for any commercial "
+            "purposes, including but not limited to selling, distributing, or integrating it into any "
+            "product or service intended for monetary gain."
+        )
         messagebox.exec()
 
     def check_update(self):
@@ -457,19 +540,15 @@ class FirmwareUpdateGUI(QWidget):
             messagebox.setText(f"Failed to check the availability of program updates!\n{e}")
             messagebox.exec()
             return
-
         if not update_details:
             return
-
         new_version = update_details["tag_name"]
         url_download = update_details["html_url"]
-
         messagebox = QMessageBox(self)
         messagebox.setIcon(QMessageBox.Question)
         messagebox.setWindowTitle(f"{self.window_name} - Update Available")
         messagebox.setText(f"There is an BWFlasher {new_version} update available! Would you like to download it now?")
         messagebox.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
-
         x = messagebox.exec()
         if x == QMessageBox.StandardButton.Yes:
             webbrowser.open(url_download)

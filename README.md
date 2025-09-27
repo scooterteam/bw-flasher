@@ -1,5 +1,5 @@
 # bw-flasher
-Flashing Brightway controllers using the UART.
+This is Brightway Flasher which combines the patcher and flasher from ScooterTeam into a single tool, so you no longer need to search for and manually patch firmware online.
 
 ![Screenshot](resources/screenshot_v0.5.4.png)
 

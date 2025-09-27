@@ -41,7 +41,7 @@ You can package the project as a standalone executable using the following comma
 
 ( Windows )
 ```bash
-pyinstaller --name="bwflasher" -i resources/app.ico --add-data "resources/*;resources" --add-data "Firmwares/*;Firmwares" --add-binary "resources/keystone.dll;." --hidden-import bwpatcher.modules.Mi4Pro2nd --hidden-import bwpatcher.modules.Mi5 --hidden-import bwpatcher.modules.Mi5Pro --hidden-import bwpatcher.modules.Mi5Max --hidden-import bwpatcher.utils --onefile bwflasher/gui.py
+pyinstaller --name="bwflasher" -i resources/app.ico --add-data "resources/*;resources" --add-data "Firmwares/*;Firmwares" --add-binary "resources/keystone.dll;." --hidden-import bwpatcher.modules.Mi4Pro2nd --hidden-import bwpatcher.modules.Mi5 --hidden-import bwpatcher.modules.Mi5Pro --hidden-import bwpatcher.modules.Mi5Max --hidden-import bwpatcher.utils --windowed --onefile bwflasher/gui.py
 ```
 
 ( MacoS )

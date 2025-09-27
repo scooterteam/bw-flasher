@@ -21,6 +21,7 @@
 import serial.tools.list_ports
 import sys
 import os, sys
+import tempfile
 import platform
 import webbrowser
 import requests
@@ -133,6 +134,9 @@ class FirmwareUpdateGUI(QWidget):
         self.setWindowIcon(QIcon(resource_path("app.ico")))
         self.setObjectName("mainWindow")
         self.setStyleSheet(DARK_THEME_STYLESHEET)
+
+        self.check_update()
+        self.disclaimer_messagebox()
 
         self.setGeometry(100, 100, 600, 500)
         layout = QVBoxLayout()
@@ -304,6 +308,7 @@ class FirmwareUpdateGUI(QWidget):
         
     def patch(self):
         patches = []
+        temp_dir = tempfile.gettempdir()
         scooter_model = self.scooter_combo.currentText()  
 
         model_file_map = {
@@ -347,7 +352,7 @@ class FirmwareUpdateGUI(QWidget):
         else:
             base_dir = os.path.dirname(os.path.abspath(__file__))
 
-        output_path = os.path.join(base_dir, "patched_firmware.bin")
+        output_path = os.path.join(temp_dir, "patched_firmware.bin")
         with open(output_path, "wb") as f:
             f.write(patched_firmware)
 
@@ -463,17 +468,14 @@ class FirmwareUpdateGUI(QWidget):
         self.start_thread()
 
     def start_update(self):
-        if getattr(sys, 'frozen', False):
-            # wenn als EXE gestartet
-            base_dir = os.path.dirname(sys.executable)
-        else:
-            # wenn als normales Python-Script gestartet
-            base_dir = os.path.dirname(os.path.abspath(__file__))
-
-        firmware_file = os.path.join(base_dir, "patched_firmware.bin")
+        temp_dir = tempfile.gettempdir()
+        firmware_file = os.path.join(temp_dir, "patched_firmware.bin")
 
         if not os.path.isfile(firmware_file):
-            self.update_status("Please patch a Firmware!")
+            QMessageBox.critical(self, "Fehler", "Please Load a Firmware!")
+            return
+        
+        firmware_file = os.path.join(temp_dir, "patched_firmware.bin")
 
         simulation = self.simulation_checkbox.isChecked()
         self.flasher_debug = self.debug_checkbox.isChecked()

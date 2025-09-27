@@ -1,7 +1,7 @@
 # bw-flasher
-Flashing Brightway controllers using the UART.
+This is Brightway Flasher which combines the patcher and flasher from ScooterTeam into a single tool, so you no longer need to search for and manually patch firmware online.
 
-![Screenshot](resources/screenshot_v0.5.3.png)
+![Screenshot](resources/screenshot_v0.5.4.png)
 
 ## Terms of use
 This code / tool is provided for **personal and non-commercial use only**. By using this code / tool, you agree not to use it for any commercial purposes, including but not limited to selling, distributing, or integrating it into any product or service intended for monetary gain.
@@ -39,8 +39,19 @@ python -m bwflasher.gui
 ## Deployment
 You can package the project as a standalone executable using the following command:
 
+( Windows )
 ```bash
-pyinstaller --name="bwflasher" -i resources/app.ico --add-data "resources/*:resources" --windowed --onefile bwflasher/gui.py
+pyinstaller --name="bwflasher" -i resources/app.ico --add-data "resources/*;resources" --add-data "Firmwares/*;Firmwares" --add-binary "resources/keystone.dll;." --hidden-import bwpatcher.modules.Mi4Pro2nd --hidden-import bwpatcher.modules.Mi5 --hidden-import bwpatcher.modules.Mi5Pro --hidden-import bwpatcher.modules.Mi5Max --hidden-import bwpatcher.utils --windowed --onefile bwflasher/gui.py
+```
+
+( MacoS )
+```bash
+pyinstaller --name="bwflasher" -i resources/app.icns --add-data "resources/*:resources" --add-data "Firmwares/*:Firmwares" --add-binary "resources/libkeystone.dylib:." --hidden-import bwpatcher.modules.Mi4Pro2nd --hidden-import bwpatcher.modules.Mi5 --hidden-import bwpatcher.modules.Mi5Pro --hidden-import bwpatcher.modules.Mi5Max --hidden-import bwpatcher.utils --onefile bwflasher/gui.py
+```
+
+( Linux )
+```bash
+pyinstaller --name="bwflasher" -i resources/app.png --add-data "resources/*:resources" --add-data "Firmwares/*:Firmwares" --add-binary "resources/libkeystone.so:." --hidden-import bwpatcher.modules.Mi4Pro2nd --hidden-import bwpatcher.modules.Mi5 --hidden-import bwpatcher.modules.Mi5Pro --hidden-import bwpatcher.modules.Mi5Max --hidden-import bwpatcher.utils --onefile bwflasher/gui.py
 ```
 
 ## Disclaimer

@@ -39,8 +39,14 @@ python -m bwflasher.gui
 ## Deployment
 You can package the project as a standalone executable using the following command:
 
+( Windows )
 ```bash
-pyinstaller --name="bwflasher" -i resources/app.ico --add-data "resources/*;resources" --add-data "Firmwares/*;Firmwares" --add-binary "resources/keystone.dll;resources" --hidden-import bwpatcher.modules.Mi4Pro2nd --hidden-import bwpatcher.modules.Mi5 --hidden-import bwpatcher.modules.Mi5Pro --hidden-import bwpatcher.modules.Mi5Max --hidden-import bwpatcher.utils --onefile bwflasher/gui.py
+pyinstaller --name="bwflasher" -i resources/app.ico --add-data "resources/*;resources" --add-data "Firmwares/*;Firmwares" --add-binary "resources/keystone.dll;." --hidden-import bwpatcher.modules.Mi4Pro2nd --hidden-import bwpatcher.modules.Mi5 --hidden-import bwpatcher.modules.Mi5Pro --hidden-import bwpatcher.modules.Mi5Max --hidden-import bwpatcher.utils --onefile bwflasher/gui.py
+```
+
+( MacoS )
+```bash
+pyinstaller --name="bwflasher" -i resources/app.icns --add-data "resources/*:resources" --add-data "Firmwares/*:Firmwares" --add-binary "resources/libkeystone.dylib:." --hidden-import bwpatcher.modules.Mi4Pro2nd --hidden-import bwpatcher.modules.Mi5 --hidden-import bwpatcher.modules.Mi5Pro --hidden-import bwpatcher.modules.Mi5Max --hidden-import bwpatcher.utils --onefile bwflasher/gui.py
 ```
 
 ## Disclaimer

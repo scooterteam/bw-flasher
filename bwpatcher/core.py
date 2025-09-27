@@ -17,6 +17,28 @@
 # - NonCommercial — You may not use the material for commercial purposes.
 # - ShareAlike — If you remix, transform, or build upon the material, you must distribute your contributions under the same license as the original.
 #
+import os
+import sys
+import platform
+
+current_os = platform.system()
+
+if getattr(sys, "frozen", False):
+    base_path = sys._MEIPASS
+else:
+    base_path = os.path.join(os.path.dirname(__file__), "..", "resources")
+
+if current_os == "Windows":
+    lib_filename = "keystone.dll"
+elif current_os == "Linux":
+    lib_filename = "libkeystone.so"
+elif current_os == "Darwin":
+    lib_filename = "libkeystone.dylib"
+else:
+    raise RuntimeError(f"Unsupported OS: {current_os}")
+
+dll_path = os.path.join(base_path, lib_filename)
+os.environ["KEYSTONE_LIB_PATH"] = os.path.abspath(dll_path)
 
 import keystone
 import capstone

@@ -38,6 +38,8 @@ from bwflasher.flash_uart import DFU, FlasherException
 from bwflasher.updater import check_update, get_name
 from bwflasher.styles import DARK_THEME_STYLESHEET, COLOR_PALETTE
 from bwflasher.version import __version__
+from bwflasher.firmware_detector import detect_firmware_file, create_flasher_for_firmware, get_firmware_info
+from bwflasher.base_flasher import FirmwareType
 
 OS = platform.system()
 
@@ -68,12 +70,13 @@ class BaseThread(QThread):
     debug_signal = Signal(str)
     exception_signal = Signal(list)
 
-    def __init__(self, com_port, firmware_file, simulation, debug, parent=None):
+    def __init__(self, com_port, firmware_file, simulation, debug, firmware_type=None, parent=None):
         super().__init__(parent)
         self.com_port = com_port
         self.firmware_file = firmware_file
         self.simulation = simulation
         self.debug = debug
+        self.firmware_type = firmware_type
 
     def update_progress(self, value):
         self.progress_signal.emit(value)
@@ -86,12 +89,18 @@ class BaseThread(QThread):
 
 
 class FirmwareUpdateThread(BaseThread):
-    def __init__(self, com_port, firmware_file, simulation, debug, parent=None):
-        super().__init__(com_port, firmware_file, simulation, debug, parent)
+    def __init__(self, com_port, firmware_file, simulation, debug, firmware_type=None, parent=None):
+        super().__init__(com_port, firmware_file, simulation, debug, firmware_type, parent)
 
     def run(self):
         try:
-            updater = DFU(
+            # Auto-detect firmware type if not specified
+            if self.firmware_type is None:
+                self.firmware_type = detect_firmware_file(self.firmware_file)
+
+            # Create appropriate flasher
+            updater = create_flasher_for_firmware(
+                self.firmware_file,
                 tty_port=self.com_port,
                 simulation=self.simulation,
                 debug=self.debug,
@@ -110,19 +119,36 @@ class FirmwareUpdateThread(BaseThread):
 
 
 class TestConnectionThread(BaseThread):
-    def __init__(self, com_port, firmware_file, simulation, debug, parent=None):
-        super().__init__(com_port, firmware_file, simulation, debug, parent)
+    def __init__(self, com_port, firmware_file, simulation, debug, firmware_type=None, parent=None):
+        super().__init__(com_port, firmware_file, simulation, debug, firmware_type, parent)
 
     def run(self):
         try:
-            updater = DFU(
-                tty_port=self.com_port,
-                simulation=self.simulation,
-                debug=self.debug,
-                status_callback=self.show_status,
-                log_callback=self.log_debug,
-                progress_callback=self.update_progress,
-            )
+            # Auto-detect firmware type if firmware file is provided
+            if self.firmware_file and self.firmware_type is None:
+                self.firmware_type = detect_firmware_file(self.firmware_file)
+
+            # Create appropriate flasher or default to Brightway
+            if self.firmware_file:
+                updater = create_flasher_for_firmware(
+                    self.firmware_file,
+                    tty_port=self.com_port,
+                    simulation=self.simulation,
+                    debug=self.debug,
+                    status_callback=self.show_status,
+                    log_callback=self.log_debug,
+                    progress_callback=self.update_progress,
+                )
+            else:
+                # No firmware file - use default Brightway flasher
+                updater = DFU(
+                    tty_port=self.com_port,
+                    simulation=self.simulation,
+                    debug=self.debug,
+                    status_callback=self.show_status,
+                    log_callback=self.log_debug,
+                    progress_callback=self.update_progress,
+                )
             updater.test_connection()
         except SerialException:
             self.exception_signal.emit(["Serial", "The serial connection caused an error. Is your adapter connected?"])
@@ -189,12 +215,27 @@ class FirmwareUpdateGUI(QWidget):
         self.file_path = QLineEdit()
         self.file_path.setObjectName("filePath")
         self.file_path.setPlaceholderText("Select firmware file...")
+        self.file_path.textChanged.connect(self.on_firmware_file_changed)
         layout_h.addWidget(self.file_path, 1)
         self.browse_button = QPushButton("Browse")
         self.browse_button.setObjectName("browseButton")
         self.browse_button.clicked.connect(self.browse_file)
         layout_h.addWidget(self.browse_button)
         layout.addLayout(layout_h)
+
+        # Firmware type label
+        self.firmware_type_label = QLabel("Firmware Type: Unknown")
+        self.firmware_type_label.setObjectName("firmwareTypeLabel")
+        self.firmware_type_label.setStyleSheet("""
+            QLabel#firmwareTypeLabel {
+                background-color: #2b2b2b;
+                padding: 8px 12px;
+                border-radius: 4px;
+                font-weight: bold;
+                border: 1px solid #3a3a3a;
+            }
+        """)
+        layout.addWidget(self.firmware_type_label)
 
         # Mode selection
         self.simulation_checkbox = QCheckBox("Simulation Mode")
@@ -377,6 +418,78 @@ class FirmwareUpdateGUI(QWidget):
         )
         if file:
             self.file_path.setText(file)
+            self.update_firmware_type_label(file)
+
+    def on_firmware_file_changed(self, file_path):
+        """Called when firmware file path changes"""
+        if file_path and os.path.exists(file_path):
+            self.update_firmware_type_label(file_path)
+        else:
+            self.firmware_type_label.setText("Firmware Type: Unknown")
+            self.firmware_type_label.setStyleSheet("""
+                QLabel#firmwareTypeLabel {
+                    background-color: #2b2b2b;
+                    padding: 8px 12px;
+                    border-radius: 4px;
+                    font-weight: bold;
+                    border: 1px solid #3a3a3a;
+                    color: #999999;
+                }
+            """)
+
+    def update_firmware_type_label(self, file_path):
+        """Update the firmware type label based on detected firmware type"""
+        try:
+            fw_type, fw_info = get_firmware_info(open(file_path, 'rb').read())
+
+            if fw_type == FirmwareType.BRIGHTWAY:
+                self.firmware_type_label.setText(f"Firmware Type: Brightway (ARM Cortex-M)")
+                self.firmware_type_label.setStyleSheet("""
+                    QLabel#firmwareTypeLabel {
+                        background-color: #1e3a1e;
+                        padding: 8px 12px;
+                        border-radius: 4px;
+                        font-weight: bold;
+                        border: 1px solid #2d5a2d;
+                        color: #66ff66;
+                    }
+                """)
+            elif fw_type == FirmwareType.LEQI:
+                self.firmware_type_label.setText(f"Firmware Type: Leqi (Encrypted)")
+                self.firmware_type_label.setStyleSheet("""
+                    QLabel#firmwareTypeLabel {
+                        background-color: #3a1e1e;
+                        padding: 8px 12px;
+                        border-radius: 4px;
+                        font-weight: bold;
+                        border: 1px solid #5a2d2d;
+                        color: #ff6666;
+                    }
+                """)
+            else:
+                self.firmware_type_label.setText("Firmware Type: Unknown")
+                self.firmware_type_label.setStyleSheet("""
+                    QLabel#firmwareTypeLabel {
+                        background-color: #2b2b2b;
+                        padding: 8px 12px;
+                        border-radius: 4px;
+                        font-weight: bold;
+                        border: 1px solid #3a3a3a;
+                        color: #999999;
+                    }
+                """)
+        except Exception as e:
+            self.firmware_type_label.setText(f"Firmware Type: Error ({str(e)})")
+            self.firmware_type_label.setStyleSheet("""
+                QLabel#firmwareTypeLabel {
+                    background-color: #3a3a1e;
+                    padding: 8px 12px;
+                    border-radius: 4px;
+                    font-weight: bold;
+                    border: 1px solid #5a5a2d;
+                    color: #ffff66;
+                }
+            """)
 
     def test_connection(self):
         simulation = self.simulation_checkbox.isChecked()

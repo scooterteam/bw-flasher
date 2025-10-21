@@ -18,49 +18,16 @@
 # - ShareAlike — If you remix, transform, or build upon the material, you must distribute your contributions under the same license as the original.
 #
 
-import serial
-import binascii
-import math
-import time
-import os
+# Backward compatibility - import from new modules
+from bwflasher.base_flasher import FlasherException, FirmwareType
+from bwflasher.brightway_flasher import BrightwayFlasher, DFUState, calculate_crc16, calculate_crc32
 
-from enum import Enum
-
-from bwflasher.utils import find_pattern_offsets
-from bwflasher.keygen import sign_rand
+# Alias for backward compatibility
+DFU = BrightwayFlasher
 
 
-class FlasherException(Exception):
-    pass
-
-
-class DFUState(Enum):
-    UID = "UID"
-    VER_INIT = "VER_INIT"
-    INIT = "INIT"
-    BLE_RAND = "BLE_RAND"
-    MCU_RAND = "MCU_RAND"
-    MCU_KEY = "MCU_KEY"
-    NVM_WRITE = "NVM_WRITE"
-    SEND_FW = "SEND_FW"
-    WR_INFO = "WR_INFO"
-    DFU_VERIFY = "DFU_VERIFY"
-    DFU_ACTIVE = "DFU_ACTIVE"
-    VER_DONE = "VER_DONE"
-    DONE = "DONE"
-
-
-def calculate_crc16(data: bytearray) -> int:
-    """Calculate CRC16 for the given data."""
-    return binascii.crc_hqx(data, 0x0)
-
-
-def calculate_crc32(data: bytearray) -> int:
-    """Calculate CRC32 for the given data."""
-    return binascii.crc32(data)
-
-
-class DFU:
+# Keep old class definition for backwards compatibility (deprecated)
+class _OldDFU:
     PACKET_SIZE = 0x800
     CHUNK_SIZE = 0x80
     CHUNKS_PER_PACKET = PACKET_SIZE // CHUNK_SIZE

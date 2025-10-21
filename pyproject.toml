@@ -1,0 +1,34 @@
+[tool.poetry]
+name = "bwflasher"
+version = "1.0.0"
+description = "Flashing Brightway and Leqi controllers using UART"
+authors = ["ScooterTeam"]
+license = "CC-BY-NC-SA-4.0"
+readme = "README.md"
+homepage = "https://github.com/scooterteam/bw-flasher"
+repository = "https://github.com/scooterteam/bw-flasher"
+keywords = ["Xiaomi", "Brightway", "Leqi", "ScooterTeam", "Scooter", "BWFlasher"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Topic :: Software Development :: Embedded Systems",
+]
+packages = [{include = "bwflasher"}]
+
+[tool.poetry.dependencies]
+python = ">=3.10,<3.14"
+pyserial = "^3.5"
+PySide6 = "^6.8.0"
+requests = "^2.32.0"
+
+[tool.poetry.group.dev.dependencies]
+pyinstaller = "^6.11.0"
+tqdm = "^4.67.0"
+pytest = "^8.0.0"
+
+[tool.poetry.scripts]
+bwflasher = "bwflasher.__main__:main"
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"

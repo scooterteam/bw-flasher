@@ -30,7 +30,7 @@ from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QProgressBar, QFileDialog, QCheckBox, QTextEdit, QStatusBar, QComboBox, QMessageBox
 )
-from PySide6.QtGui import QPalette, QIcon, QColor, QCursor
+from PySide6.QtGui import QPalette, QIcon, QColor, QCursor, QPainter, QFont, QLinearGradient, QRadialGradient
 from PySide6.QtCore import Qt, QThread, Signal, QUrl, QTimer
 from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
 
@@ -156,6 +156,55 @@ class TestConnectionThread(BaseThread):
             self.exception_signal.emit(["Unknown", str(e)])
 
 
+class CRTScanlineWidget(QWidget):
+    """CRT scanline overlay effect"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setAttribute(Qt.WA_TransparentForMouseEvents)
+        self.setAttribute(Qt.WA_TranslucentBackground)
+
+        # Scanline animation
+        self.scanline_pos = 0
+        self.timer = QTimer(self)
+        self.timer.timeout.connect(self.update_scanline)
+        self.timer.start(16)  # ~60fps
+
+    def update_scanline(self):
+        """Update scanline position"""
+        self.scanline_pos = (self.scanline_pos + 2) % self.height() if self.height() > 0 else 0
+        self.update()
+
+    def paintEvent(self, event):
+        """Paint CRT scanline effect"""
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.Antialiasing)
+
+        # Draw horizontal scanlines
+        for y in range(0, self.height(), 3):
+            painter.setPen(QColor(0, 0, 0, 30))
+            painter.drawLine(0, y, self.width(), y)
+
+        # Draw moving bright scanline
+        gradient = QLinearGradient(0, self.scanline_pos - 20, 0, self.scanline_pos + 20)
+        gradient.setColorAt(0, QColor(255, 255, 255, 0))
+        gradient.setColorAt(0.5, QColor(150, 255, 255, 40))
+        gradient.setColorAt(1, QColor(255, 255, 255, 0))
+
+        painter.fillRect(0, self.scanline_pos - 20, self.width(), 40, gradient)
+
+        # Add vignette effect
+        center_x = self.width() / 2
+        center_y = self.height() / 2
+        radius = max(self.width(), self.height())
+
+        vignette = QRadialGradient(center_x, center_y, radius)
+        vignette.setColorAt(0, QColor(0, 0, 0, 0))
+        vignette.setColorAt(0.7, QColor(0, 0, 0, 0))
+        vignette.setColorAt(1, QColor(0, 0, 0, 120))
+
+        painter.fillRect(self.rect(), vignette)
+
+
 class FirmwareUpdateGUI(QWidget):
     def __init__(self):
         super().__init__()
@@ -180,6 +229,11 @@ class FirmwareUpdateGUI(QWidget):
         layout = QVBoxLayout()
         layout.setSpacing(8)
         layout.setContentsMargins(16, 16, 16, 16)
+
+        # Add CRT scanline overlay
+        self.crt_scanlines = CRTScanlineWidget(self)
+        self.crt_scanlines.setGeometry(self.rect())
+        self.crt_scanlines.raise_()
 
         # Create banner text programmatically
         self.heading_text = self.create_banner_text()
@@ -277,12 +331,18 @@ class FirmwareUpdateGUI(QWidget):
 
         # Set up cursors for better visibility
         self.setup_cursors()
-        
+
         # Set up banner animation
         self.setup_banner_animation()
-        
+
         # Set up the media player and play chiptune
         self.setup_music()
+
+    def resizeEvent(self, event):
+        """Handle window resize to update effect overlays"""
+        super().resizeEvent(event)
+        if hasattr(self, 'crt_scanlines'):
+            self.crt_scanlines.setGeometry(self.rect())
 
     def create_banner_text(self):
         """Create banner text programmatically with proper character counts"""
@@ -458,12 +518,12 @@ class FirmwareUpdateGUI(QWidget):
                 self.firmware_type_label.setText(f"Firmware Type: Leqi (Encrypted)")
                 self.firmware_type_label.setStyleSheet("""
                     QLabel#firmwareTypeLabel {
-                        background-color: #3a1e1e;
+                        background-color: #1e3a1e;
                         padding: 8px 12px;
                         border-radius: 4px;
                         font-weight: bold;
-                        border: 1px solid #5a2d2d;
-                        color: #ff6666;
+                        border: 1px solid #2d5a2d;
+                        color: #66ff66;
                     }
                 """)
             else:

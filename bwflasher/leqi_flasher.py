@@ -26,6 +26,9 @@ class LeqiFlasher(BaseFlasher):
     CHUNK_SIZE = 128
     PACKET_HEADER = b'\x5A\x12'
 
+    FIRMWARE_OFFSET = 0x80      # Firmware starts at offset 128 in full image
+    FIRMWARE_SIZE = 0x9880      # Expected firmware size (39040 bytes)
+
     def __init__(
         self,
         tty_port: str = "/dev/ttyUSB0",
@@ -41,6 +44,27 @@ class LeqiFlasher(BaseFlasher):
         self.fw_size = 0
         self.session_start_time = None
 
+    @classmethod
+    def extract_firmware_from_image(cls, full_image_data):
+        """
+        Extract the firmware section from a full image file.
+
+        Args:
+            full_image_data: Full image data (bytes or bytearray)
+
+        Returns:
+            firmware_data: The extracted firmware section
+        """
+        if len(full_image_data) < cls.FIRMWARE_OFFSET + cls.FIRMWARE_SIZE:
+            raise ValueError(
+                f"Image too small: {len(full_image_data)} bytes. "
+                f"Expected at least {cls.FIRMWARE_OFFSET + cls.FIRMWARE_SIZE} bytes"
+            )
+
+        firmware_data = full_image_data[cls.FIRMWARE_OFFSET:cls.FIRMWARE_OFFSET + cls.FIRMWARE_SIZE]
+
+        return firmware_data
+
     def load_file(self, firmware_file: str):
         """Load and validate Leqi firmware file"""
         self.debug_log(f"Loading Leqi firmware file: {firmware_file}")
@@ -53,6 +77,12 @@ class LeqiFlasher(BaseFlasher):
             raise FlasherException("This doesn't appear to be a Leqi firmware file")
 
         self.encrypted_fw = self.fw
+        if len(self.fw) > self.FIRMWARE_SIZE:
+            self.encrypted_fw = self.extract_firmware_from_image(self.fw)
+
+        with open('tmp.bin', 'wb') as f:
+            f.write(self.encrypted_fw)
+
         self.fw_size = self.calculate_firmware_size(self.encrypted_fw)
 
         self.log(f"Loaded Leqi firmware: {len(self.fw)} bytes")

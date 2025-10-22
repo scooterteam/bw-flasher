@@ -20,8 +20,7 @@
 
 import os
 
-from bwflasher.flash_uart import DFU
-
+from bwflasher.firmware_detector import create_flasher_for_firmware
 
 def main():
     import argparse
@@ -48,7 +47,8 @@ def main():
             pbar.n = progress
             pbar.refresh()
 
-        updater = DFU(
+        updater = create_flasher_for_firmware(
+            firmware_file=args.fw_file,
             tty_port=args.port,
             simulation=args.simulation,
             debug=args.debug,
@@ -57,7 +57,6 @@ def main():
             progress_callback=progress_callback
         )
         updater.load_file(args.fw_file)
-
         updater.run()
 
 

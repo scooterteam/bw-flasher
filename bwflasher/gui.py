@@ -38,8 +38,7 @@ from bwflasher.flash_uart import DFU, FlasherException
 from bwflasher.updater import check_update, get_name
 from bwflasher.styles import DARK_THEME_STYLESHEET, COLOR_PALETTE
 from bwflasher.version import __version__
-from bwflasher.firmware_detector import detect_firmware_file, create_flasher_for_firmware, get_firmware_info
-from bwflasher.base_flasher import FirmwareType
+from bwflasher.base_flasher import detect_firmware_file, create_flasher_for_firmware, get_firmware_info, FirmwareType
 
 OS = platform.system()
 
@@ -526,6 +525,19 @@ class FirmwareUpdateGUI(QWidget):
                         color: #66ff66;
                     }
                 """)
+            elif fw_type == FirmwareType.NINEBOT:
+                self.firmware_type_label.setText(f"Firmware Type: Ninebot (v{fw_info['version']})")
+                self.firmware_type_label.setStyleSheet("""
+                    QLabel#firmwareTypeLabel {
+                        background-color: #1e3a1e;
+                        padding: 8px 12px;
+                        border-radius: 4px;
+                        font-weight: bold;
+                        border: 1px solid #2d5a2d;
+                        color: #66ff66;
+                    }
+                """
+            )
             else:
                 self.firmware_type_label.setText("Firmware Type: Unknown")
                 self.firmware_type_label.setStyleSheet("""
@@ -613,12 +625,49 @@ class FirmwareUpdateGUI(QWidget):
     def disclaimer_messagebox(self):
         messagebox = QMessageBox(self)
         messagebox.setIcon(QMessageBox.Warning)
-        messagebox.setWindowTitle(f"{self.window_name} - Disclaimer")
-        messagebox.setText("Use of this tool is entirely at your own risk, as it is provided as-is without any "
-                           "guarantees or warranties. By using this tool, you agree not to use it for any commercial "
-                           "purposes, including but not limited to selling, distributing, or integrating it into any "
-                           "product or service intended for monetary gain.")
-        messagebox.exec()
+        messagebox.setWindowTitle(f"{self.window_name} - Important Legal Notice")
+
+        disclaimer_text = """<h3>⚠️ IMPORTANT: Read Before Using</h3>
+
+<p><b>This tool is for EDUCATIONAL and RESEARCH purposes only.</b></p>
+
+<p><b>YOU OWN WHAT YOU BUY:</b> This tool helps you understand and modify devices you own.
+However, modifications may be dangerous and illegal.</p>
+
+<p><b style="color: #ff6b6b;">Safety Warnings:</b></p>
+<ul>
+<li>May void your warranty</li>
+<li>May violate local laws and regulations</li>
+<li>Can bypass manufacturer safety features - serious injury risk</li>
+<li>Modified devices may be illegal to operate</li>
+<li>YOU assume ALL liability for injuries, accidents, and legal consequences</li>
+</ul>
+
+<p><b>No Commercial Use:</b> This software is CC-BY-NC-SA licensed.
+Commercial use is strictly prohibited.</p>
+
+<p><b>No Warranty:</b> Provided AS-IS with no guarantees. Authors accept NO liability.</p>
+
+<p style="font-size: 11px; margin-top: 10px;">
+See LEGAL_DISCLAIMER.md and PRINCIPLES.md for full terms.<br/>
+By clicking 'I Understand', you acknowledge these risks and agree to use responsibly.
+</p>
+"""
+
+        messagebox.setText(disclaimer_text)
+        messagebox.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+        messagebox.setDefaultButton(QMessageBox.Cancel)
+
+        ok_button = messagebox.button(QMessageBox.Ok)
+        ok_button.setText("I Understand && Accept Risk")
+
+        cancel_button = messagebox.button(QMessageBox.Cancel)
+        cancel_button.setText("Exit")
+
+        result = messagebox.exec()
+
+        if result == QMessageBox.Cancel:
+            sys.exit(0)
 
     def check_update(self):
         try:

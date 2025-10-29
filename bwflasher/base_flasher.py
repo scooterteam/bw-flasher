@@ -20,12 +20,16 @@
 
 from abc import ABC, abstractmethod
 from enum import Enum
+from typing import Tuple
+
+from bwflasher.utils import load_and_process_firmware, process_firmware
 
 
 class FirmwareType(Enum):
     """Enum to identify firmware types"""
     BRIGHTWAY = "Brightway"
     LEQI = "Leqi"
+    NINEBOT = "Ninebot"
     UNKNOWN = "Unknown"
 
 
@@ -95,3 +99,70 @@ class BaseFlasher(ABC):
         """Emit status update"""
         if self.status_callback:
             self.status_callback(status_text)
+
+def _get_flasher_classes():
+    from bwflasher.brightway_flasher import BrightwayFlasher
+    from bwflasher.leqi_flasher import LeqiFlasher
+    from bwflasher.ninebot_flasher import NinebotFlasher
+    return [BrightwayFlasher, LeqiFlasher, NinebotFlasher]
+
+def detect_firmware_type(firmware_data: bytes) -> FirmwareType:
+    for flasher_class in _get_flasher_classes():
+        fw_type = flasher_class.detect_firmware_type(firmware_data)
+        if fw_type != FirmwareType.UNKNOWN:
+            return fw_type
+    return FirmwareType.UNKNOWN
+
+def detect_firmware_file(firmware_file: str) -> FirmwareType:
+    try:
+        firmware_data = load_and_process_firmware(firmware_file)
+        return detect_firmware_type(firmware_data)
+    except Exception:
+        return FirmwareType.UNKNOWN
+
+def create_flasher_for_firmware(firmware_file: str, **kwargs):
+    fw_type = detect_firmware_file(firmware_file)
+    for flasher_class in _get_flasher_classes():
+        if flasher_class.detect_firmware_type(load_and_process_firmware(firmware_file)) == fw_type:
+            return flasher_class(**kwargs)
+    raise ValueError(f"Unknown firmware type for file: {firmware_file}")
+
+def get_firmware_info(firmware_data: bytes) -> Tuple[FirmwareType, dict]:
+    data = process_firmware(firmware_data)
+    fw_type = detect_firmware_type(data)
+    info = {
+        'type': fw_type,
+        'size': len(data),
+    }
+
+    if fw_type == FirmwareType.BRIGHTWAY:
+        if len(data) > 0x808:
+            signature = data[0x800:0x807].decode('ascii', errors='ignore')
+            info['signature'] = signature
+        try:
+            from bwflasher.utils import find_pattern_offsets
+            offsets = find_pattern_offsets("637C", data)
+            if offsets:
+                info['signing_pattern_offset'] = f"0x{offsets[0]:X}"
+        except:
+            pass
+        info['protocol'] = "DFU (Device Firmware Update)"
+
+    elif fw_type == FirmwareType.LEQI:
+        aa_a2_count = data[0x80:0x400].count(b'\xaa\xa2')
+        aa_count = data[0x80:0x400].count(0xAA)
+        info['encryption'] = "XOR 0xAA"
+        info['aa_a2_pattern_count'] = aa_a2_count
+        info['aa_byte_count'] = aa_count
+        info['protocol'] = "Binary packets (5A 12 header)"
+    elif fw_type == FirmwareType.NINEBOT:
+        try:
+            version_offset = data.find(b'\x00', 0x107) + 1
+            version_end = data.find(b'\x00', version_offset)
+            info['version'] = data[version_offset:version_end].decode('ascii')
+        except:
+            info['version'] = 'Unknown'
+        info['protocol'] = "Ninebot (55 AA header)"
+
+    return fw_type, info
+

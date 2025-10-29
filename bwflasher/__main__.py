@@ -20,7 +20,7 @@
 
 import os
 
-from bwflasher.firmware_detector import create_flasher_for_firmware
+from bwflasher.base_flasher import create_flasher_for_firmware
 
 def main():
     import argparse

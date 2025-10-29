@@ -20,6 +20,7 @@ python = ">=3.10,<3.14"
 pyserial = "^3.5"
 PySide6 = "^6.8.0"
 requests = "^2.32.0"
+fasttea = "^1.1.0"
 
 [tool.poetry.group.dev.dependencies]
 pyinstaller = "^6.11.0"

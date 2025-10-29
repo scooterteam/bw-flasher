@@ -18,6 +18,10 @@
 # - ShareAlike — If you remix, transform, or build upon the material, you must distribute your contributions under the same license as the original.
 #
 
+import zipfile
+from io import BytesIO
+from zippy import Zippy
+
 def find_pattern_offsets(pattern_hex, binary_data, start_offset=0):
     offsets = []
     if not pattern_hex:
@@ -32,7 +36,34 @@ def find_pattern_offsets(pattern_hex, binary_data, start_offset=0):
 
     return offsets
 
+def process_firmware(firmware_data: bytes) -> bytes:
+    zippy = Zippy(firmware_data)
+    try:
+        zippy.try_extract()
+        processed_fw = zippy.data
+    except Exception as e:
+        raise Exception(f"Zippy processing failed: {e}")
 
+    if len(processed_fw) > 4096:
+        processed_fw = processed_fw[:-2]
+
+    print(f"DEBUG: Final processed firmware length: {len(processed_fw)}")
+    return processed_fw
+
+def load_and_process_firmware(firmware_file_path: str) -> bytes:
+    """
+    Loads a firmware file, extracts it from a ZIP if necessary,
+    and decrypts it if it appears to be encrypted.
+    """
+    try:
+        with open(firmware_file_path, 'rb') as f:
+            raw_data = f.read()
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Firmware file not found: {firmware_file_path}")
+
+    return process_firmware(raw_data)
+
+# TODO: move this to tests/
 def test_find_pattern_offsets():
     binary_data = b'\x00\x01\x02\x03\x04\x01\x02\x03\x04\x05'
     pattern_hex = '010203'

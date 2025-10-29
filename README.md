@@ -1,10 +1,35 @@
 # bw-flasher
-Flashing Brightway controllers using the UART.
+Flashing Brightway and Leqi scooter controllers using UART.
 
 ![Screenshot](resources/screenshot_v0.5.3.png)
 
-## Terms of use
-This code / tool is provided for **personal and non-commercial use only**. By using this code / tool, you agree not to use it for any commercial purposes, including but not limited to selling, distributing, or integrating it into any product or service intended for monetary gain.
+## 🔓 Our Principles
+
+**You own what you buy.** If you purchased a device, you have the right to understand how it works, repair it, and modify it. Vendors should not lock you out of hardware you own.
+
+**Knowledge should be free.** Reverse engineering findings belong in the public domain. Hoarding this information only empowers those selling black-market tools while honest users stay in the dark.
+
+**Transparency over obscurity.** Weak encryption and absent authentication are security flaws, not secrets to protect. Documenting them pushes manufacturers toward better security.
+
+**Personal responsibility matters.** We provide tools for research and education. What you do with them—and the consequences—are yours. Know your local laws. Prioritize safety.
+
+**No commercial exploitation.** This work is shared freely for the community, not for building products that profit from bypassing safety features.
+
+**This is not an invitation to break laws or endanger people. This is an assertion that understanding technology is a fundamental right.**
+
+👉 Read the full [PRINCIPLES.md](PRINCIPLES.md) and [LEGAL_DISCLAIMER.md](LEGAL_DISCLAIMER.md) before using this software.
+
+## ⚠️ IMPORTANT SAFETY WARNING
+
+**Modifying device firmware can be dangerous and illegal.**
+
+- May void your warranty
+- May violate local laws and regulations
+- Creates serious safety risks by bypassing manufacturer safety features
+- Modified devices may be illegal to operate
+- You assume ALL liability for injuries, accidents, and legal consequences
+
+**Use at your own risk. This software is for educational and research purposes only.**
 
 ## Installation
 
@@ -21,7 +46,7 @@ It's recommended to use a virtual environment like `venv` for installation.
 
 ## Usage
 
-The flasher now supports both **Brightway** and **Leqi** firmware types, with automatic detection!
+The flasher supports both **Brightway** and **Leqi** firmware types, with automatic detection!
 
 ### CLI
 

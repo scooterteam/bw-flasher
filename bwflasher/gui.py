@@ -178,6 +178,12 @@ class FirmwareUpdateGUI(QWidget):
         self.com_port.addItems(get_serial_ports())
         self.com_port.setObjectName("serialCombo")
         layout_h.addWidget(self.com_port)
+        self.refresh_button = QPushButton("🔄")
+        self.refresh_button.setObjectName("refreshButton")
+        self.refresh_button.setToolTip("Refresh serial ports")
+        self.refresh_button.setMaximumWidth(40)
+        self.refresh_button.clicked.connect(self.refresh_serial_ports)
+        layout_h.addWidget(self.refresh_button)
         layout.addLayout(layout_h)
 
         # Firmware file selection
@@ -276,6 +282,7 @@ class FirmwareUpdateGUI(QWidget):
         
         # Set pointer cursor for clickable elements
         self.browse_button.setCursor(Qt.PointingHandCursor)
+        self.refresh_button.setCursor(Qt.PointingHandCursor)
         self.test_button.setCursor(Qt.PointingHandCursor)
         self.start_button.setCursor(Qt.PointingHandCursor)
         self.simulation_checkbox.setCursor(Qt.PointingHandCursor)
@@ -377,6 +384,23 @@ class FirmwareUpdateGUI(QWidget):
         )
         if file:
             self.file_path.setText(file)
+
+    def refresh_serial_ports(self):
+        """Refresh the list of available serial ports"""
+        # Store current selection
+        current_port = self.com_port.currentText()
+
+        # Clear and repopulate
+        self.com_port.clear()
+        ports = get_serial_ports()
+        self.com_port.addItems(ports)
+
+        # Restore previous selection if still available
+        if current_port and current_port in ports:
+            self.com_port.setCurrentText(current_port)
+
+        # Show status message
+        self.status_bar.showMessage(f"Found {len(ports)} serial port(s)", 2000)
 
     def test_connection(self):
         simulation = self.simulation_checkbox.isChecked()

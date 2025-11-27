@@ -8,7 +8,7 @@
 DARK_THEME_STYLESHEET = """
 /* Professional 'Terminal' Theme for BWFlasher */
 QWidget {
-    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
+    font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
     font-size: 12pt;
     color: #e6e6e6;
     font-weight: 400;
@@ -31,7 +31,7 @@ QLabel#titleLabel {
     border-radius: 4px;
     margin: 8px;
     border: 1px solid rgba(14, 165, 233, 0.15);
-    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
+    font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
     line-height: 1.2;
 }
 
@@ -163,7 +163,7 @@ QTextEdit {
     background: #0d1117;
     color: #e6e6e6;
     padding: 8px;
-    font-family: 'JetBrains Mono', 'Fira Code', 'Consolas', 'Monaco', monospace;
+    font-family: 'Fira Code', 'Consolas', 'Monaco', monospace;
     font-size: 8pt;
     font-weight: 400;
     line-height: 1.3;

@@ -68,7 +68,7 @@ Open a GitHub issue with:
 
 Use clear, descriptive commit messages:
 ```
-Good: "fix(leqi): Handle timeout on end command retry"
+Good: "fix(LEQI): Handle timeout on end command retry"
 Good: "docs: Add troubleshooting section for macOS serial ports"
 Bad: "fixed stuff"
 Bad: "update"

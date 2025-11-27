@@ -1,13 +1,13 @@
 [tool.poetry]
 name = "bwflasher"
 version = "1.0.0"
-description = "Flashing Brightway and Leqi controllers using UART"
+description = "Flashing Brightway and LEQI controllers using UART"
 authors = ["ScooterTeam"]
 license = "CC-BY-NC-SA-4.0"
 readme = "README.md"
 homepage = "https://github.com/scooterteam/bw-flasher"
 repository = "https://github.com/scooterteam/bw-flasher"
-keywords = ["Xiaomi", "Brightway", "Leqi", "ScooterTeam", "Scooter", "BWFlasher"]
+keywords = ["Xiaomi", "Brightway", "LEQI", "ScooterTeam", "Scooter", "BWFlasher"]
 classifiers = [
     "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",

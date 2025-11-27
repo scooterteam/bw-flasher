@@ -1,5 +1,5 @@
 # bw-flasher
-Flashing Brightway and Leqi scooter controllers using UART.
+Flashing Brightway and LEQI scooter controllers using UART.
 
 ![Screenshot](resources/screenshot_v0.5.3.png)
 
@@ -60,11 +60,11 @@ It's recommended to use a virtual environment like `venv` for installation.
 
 ## Usage
 
-The flasher supports both **Brightway** and **Leqi** firmware types, with automatic detection!
+The flasher supports both **Brightway** and **LEQI** firmware types, with automatic detection!
 
 ### CLI
 
-The command-line interface automatically detects the firmware type (Brightway or Leqi).
+The command-line interface automatically detects the firmware type (Brightway or LEQI).
 
 ```bash
 # Using Poetry
@@ -86,7 +86,7 @@ poetry run python -m bwflasher.gui
 python -m bwflasher.gui
 ```
 
-The GUI will automatically detect firmware type (Brightway or Leqi) when you select a file and display it with a color-coded label.
+The GUI will automatically detect firmware type (Brightway or LEQI) when you select a file and display it with a color-coded label.
 
 ## Testing
 

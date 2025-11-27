@@ -103,8 +103,8 @@ class BaseFlasher(ABC):
 def _get_flasher_classes():
     from bwflasher.brightway_flasher import BrightwayFlasher
     from bwflasher.leqi_flasher import LeqiFlasher
-    from bwflasher.ninebot_flasher import NinebotFlasher
-    return [BrightwayFlasher, LeqiFlasher, NinebotFlasher]
+    #from bwflasher.ninebot_flasher import NinebotFlasher
+    return [BrightwayFlasher, LeqiFlasher]
 
 def detect_firmware_type(firmware_data: bytes) -> FirmwareType:
     for flasher_class in _get_flasher_classes():

@@ -17,7 +17,7 @@ Flashing Brightway and Leqi scooter controllers using UART.
 
 **This is not an invitation to break laws or endanger people. This is an assertion that understanding technology is a fundamental right.**
 
-👉 Read the full [PRINCIPLES.md](PRINCIPLES.md) and [LEGAL_DISCLAIMER.md](LEGAL_DISCLAIMER.md) before using this software.
+
 
 ## ⚠️ IMPORTANT SAFETY WARNING
 
@@ -50,17 +50,16 @@ The flasher supports both **Brightway** and **Leqi** firmware types, with automa
 
 ### CLI
 
-#### Brightway Firmware
+The command-line interface automatically detects the firmware type (Brightway or Leqi).
+
 ```bash
 # Using Poetry
-poetry run python -m bwflasher [--simulation] [--debug] [--port PORT] fw_file.bin
+poetry run bwflasher [--simulation] [--debug] [--port PORT] <FIRMWARE_FILE>
 
 # Using pip
-python -m bwflasher [--simulation] [--debug] [--port PORT] fw_file.bin
+python -m bwflasher [--simulation] [--debug] [--port PORT] <FIRMWARE_FILE>
 ```
-
-#### Leqi Firmware
-Leqi firmware is supported through the GUI with automatic detection. For command-line operations, use the standalone `leqi_fw_tool.py` script in the project root.
+The `<FIRMWARE_FILE>` argument should be the path to your `.bin` file.
 
 ### GUI
 Run the flasher GUI with this command:

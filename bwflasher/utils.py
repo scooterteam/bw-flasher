@@ -18,9 +18,9 @@
 # - ShareAlike — If you remix, transform, or build upon the material, you must distribute your contributions under the same license as the original.
 #
 
-import zipfile
 from io import BytesIO
-from zippy import Zippy
+import zipfile
+import fasttea
 
 def find_pattern_offsets(pattern_hex, binary_data, start_offset=0):
     offsets = []
@@ -36,19 +36,57 @@ def find_pattern_offsets(pattern_hex, binary_data, start_offset=0):
 
     return offsets
 
-def process_firmware(firmware_data: bytes) -> bytes:
-    zippy = Zippy(firmware_data)
+
+def _decode_model(data: bytes):
+    """Tries to decode the model id from the firmware data."""
+    id_ = None
     try:
-        zippy.try_extract()
-        processed_fw = zippy.data
-    except Exception as e:
-        raise Exception(f"Zippy processing failed: {e}")
+        id_ = data[0x100:0x10f].decode('ascii')
+    except (UnicodeDecodeError, IndexError):
+        try:
+            id_ = data[0x400:0x40e].decode("ascii")
+        except (UnicodeDecodeError, IndexError):
+            pass
+    return id_
+
+
+def process_firmware(firmware_data: bytes) -> bytes:
+    """
+    Extracts and decrypts firmware from a ZIP archive if necessary.
+    This is based on the logic from the old Zippy.try_extract method.
+    """
+    processed_fw = firmware_data
+    try:
+        with zipfile.ZipFile(BytesIO(firmware_data), 'r') as zf:
+            file_list = zf.namelist()
+            if not file_list:
+                raise ValueError("The ZIP file is empty.")
+
+            # Find the file to extract, preferring specific filenames
+            esc_file = next(
+                (name for name in file_list if name.startswith('EC_ESC_Driver') or name.endswith(".enc")),
+                file_list[0]
+            )
+            processed_fw = zf.read(esc_file)
+    except zipfile.BadZipFile:
+        # Not a zip file, use the raw data.
+        pass
+
+    # Decryption logic, similar to Zippy's
+    if not _decode_model(processed_fw):
+        try:
+            decrypted_fw = fasttea.decrypt(processed_fw)
+            if _decode_model(decrypted_fw):
+                processed_fw = decrypted_fw
+        except Exception:
+            # Keep original data if decryption fails
+            pass
 
     if len(processed_fw) > 4096:
         processed_fw = processed_fw[:-2]
 
-    print(f"DEBUG: Final processed firmware length: {len(processed_fw)}")
     return processed_fw
+
 
 def load_and_process_firmware(firmware_file_path: str) -> bytes:
     """

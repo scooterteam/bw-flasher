@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 #! -*- coding: utf-8 -*-
 #
-# BW Flasher - Leqi Firmware Flasher
+# BW Flasher - LEQI Firmware Flasher
 # Copyright (C) 2024-2025 ScooterTeam
 #
 # This work is licensed under the Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License.
@@ -17,7 +17,7 @@ from bwflasher.base_flasher import BaseFlasher, FlasherException, FirmwareType
 
 
 class LeqiFlasher(BaseFlasher):
-    """Flasher for Leqi scooter firmware (encrypted with XOR 0xAA)"""
+    """Flasher for LEQI scooter firmware (encrypted with XOR 0xAA)"""
 
     # Constants from reverse engineering
     ENCRYPTION_KEY = 0xAA
@@ -66,15 +66,15 @@ class LeqiFlasher(BaseFlasher):
         return firmware_data
 
     def load_file(self, firmware_file: str):
-        """Load and validate Leqi firmware file"""
-        self.debug_log(f"Loading Leqi firmware file: {firmware_file}")
+        """Load and validate LEQI firmware file"""
+        self.debug_log(f"Loading LEQI firmware file: {firmware_file}")
 
         with open(firmware_file, 'rb') as f:
             self.fw = f.read()
 
         # Check if it's encrypted firmware (should have 0xAA patterns)
         if self.detect_firmware_type(self.fw) != FirmwareType.LEQI:
-            raise FlasherException("This doesn't appear to be a Leqi firmware file")
+            raise FlasherException("This doesn't appear to be a LEQI firmware file")
 
         self.encrypted_fw = self.fw
         if len(self.fw) > self.FIRMWARE_SIZE:
@@ -85,16 +85,16 @@ class LeqiFlasher(BaseFlasher):
 
         self.fw_size = self.calculate_firmware_size(self.encrypted_fw)
 
-        self.log(f"Loaded Leqi firmware: {len(self.fw)} bytes")
+        self.log(f"Loaded LEQI firmware: {len(self.fw)} bytes")
         self.log(f"Firmware size (AA padding end): 0x{self.fw_size:X} ({self.fw_size} bytes)")
 
     def run(self):
-        """Execute the Leqi firmware flashing process"""
+        """Execute the LEQI firmware flashing process"""
         if not self.encrypted_fw:
             raise FlasherException("No firmware loaded. Call load_file() first.")
 
         if self.simulation:
-            self.log("Simulation mode - running simulated Leqi firmware flash")
+            self.log("Simulation mode - running simulated LEQI firmware flash")
             self._run_simulation()
             return
 
@@ -129,7 +129,7 @@ class LeqiFlasher(BaseFlasher):
             self._send_end_command()
 
             self.serial_conn.close()
-            self.log("✓ SUCCESS: Leqi firmware update completed")
+            self.log("✓ SUCCESS: LEQI firmware update completed")
             self.emit_progress(100)
 
         except SerialException as e:
@@ -138,7 +138,7 @@ class LeqiFlasher(BaseFlasher):
             raise FlasherException(f"Unexpected error: {e}")
 
     def _run_simulation(self):
-        """Run simulated Leqi firmware flash with TX/RX logging"""
+        """Run simulated LEQI firmware flash with TX/RX logging"""
         import time
 
         # Simulate start command
@@ -218,13 +218,13 @@ class LeqiFlasher(BaseFlasher):
         rx_hex = ' '.join(f'{b:02X}' for b in end_response)
         self.debug_log(f"RX: {rx_hex}")
 
-        self.log("✓ SIMULATION: Leqi firmware update completed successfully")
+        self.log("✓ SIMULATION: LEQI firmware update completed successfully")
         self.emit_progress(100)
 
     def test_connection(self):
-        """Test connection to Leqi controller"""
+        """Test connection to LEQI controller"""
         if self.simulation:
-            self.log("Simulation mode - testing Leqi protocol")
+            self.log("Simulation mode - testing LEQI protocol")
             self.emit_status("Simulating connection test...")
 
             # Simulate sending a test packet
@@ -258,18 +258,18 @@ class LeqiFlasher(BaseFlasher):
 
     @staticmethod
     def detect_firmware_type(firmware_data: bytes) -> FirmwareType:
-        """Detect if firmware is Leqi type (encrypted with 0xAA)"""
+        """Detect if firmware is LEQI type (encrypted with 0xAA)"""
         if len(firmware_data) < 0x400:
             return FirmwareType.UNKNOWN
 
-        # Check for Leqi firmware (encrypted with 0xAA)
+        # Check for LEQI firmware (encrypted with 0xAA)
         # Look for the characteristic "aa a2" pattern (0xAA XORed address in little-endian)
         # and high concentration of 0xAA bytes
         aa_a2_pattern = b'\xaa\xa2'
         aa_a2_count = firmware_data[0x80:0x400].count(aa_a2_pattern)
         aa_count = firmware_data[0x80:0x400].count(0xAA)
 
-        # Leqi encrypted firmware has many "aa a2" patterns (encrypted pointers)
+        # LEQI encrypted firmware has many "aa a2" patterns (encrypted pointers)
         # and overall high 0xAA byte concentration
         if aa_a2_count > 10 and aa_count > 50:
             return FirmwareType.LEQI

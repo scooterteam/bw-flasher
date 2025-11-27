@@ -19,7 +19,21 @@ Flashing Brightway and Leqi scooter controllers using UART.
 
 
 
+## Further Documentation
+
+
+
+- [Our Principles](PRINCIPLES.md) - Learn about the core values guiding this project.
+
+- [Legal Disclaimer](LEGAL_DISCLAIMER.md) - Important information regarding legal responsibilities and risks.
+
+- [Contributing Guidelines](CONTRIBUTING.md) - How to contribute to the project.
+
+
+
 ## ⚠️ IMPORTANT SAFETY WARNING
+
+
 
 **Modifying device firmware can be dangerous and illegal.**
 

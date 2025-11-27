@@ -521,7 +521,7 @@ class FirmwareUpdateGUI(QWidget):
                     }
                 """)
             elif fw_type == FirmwareType.LEQI:
-                self.firmware_type_label.setText(f"Firmware Type: Leqi (Encrypted)")
+                self.firmware_type_label.setText(f"Firmware Type: LEQI (Encrypted)")
                 self.firmware_type_label.setStyleSheet("""
                     QLabel#firmwareTypeLabel {
                         background-color: #1e3a1e;
@@ -673,8 +673,7 @@ Commercial use is strictly prohibited.</p>
 <p><b>No Warranty:</b> Provided AS-IS with no guarantees. Authors accept NO liability.</p>
 
 <p style="font-size: 11px; margin-top: 10px;">
-See LEGAL_DISCLAIMER.md and PRINCIPLES.md for full terms.<br/>
-By clicking 'I Understand', you acknowledge these risks and agree to use responsibly.
+By clicking 'Accept', you acknowledge these risks and agree to use responsibly.
 </p>
 """
 
@@ -683,7 +682,7 @@ By clicking 'I Understand', you acknowledge these risks and agree to use respons
         messagebox.setDefaultButton(QMessageBox.Cancel)
 
         ok_button = messagebox.button(QMessageBox.Ok)
-        ok_button.setText("I Understand && Accept Risk")
+        ok_button.setText("Accept")
 
         cancel_button = messagebox.button(QMessageBox.Cancel)
         cancel_button.setText("Exit")

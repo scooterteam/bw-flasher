@@ -28,7 +28,7 @@ from bwflasher.utils import load_and_process_firmware, process_firmware
 class FirmwareType(Enum):
     """Enum to identify firmware types"""
     BRIGHTWAY = "Brightway"
-    LEQI = "Leqi"
+    LEQI = "LEQI"
     NINEBOT = "Ninebot"
     UNKNOWN = "Unknown"
 

@@ -357,14 +357,14 @@ class FirmwareUpdateGUI(QWidget):
         total_width = 58  # Total characters per line
         
         # Calculate padding for center alignment
-        title_padding = (total_width - 2 - len(title)) // 2  # -2 for ║ characters
+        title_padding = (total_width - 2 - len(title)) // 2  # -2 for │ characters
         subtitle_padding = (total_width - 2 - len(subtitle)) // 2
         
         # Create lines
-        top_line = "╔" + "═" * (total_width - 2) + "╗"
-        title_line = "║" + " " * title_padding + title + " " * (total_width - 2 - title_padding - len(title)) + "║"
-        subtitle_line = "║" + " " * subtitle_padding + subtitle + " " * (total_width - 2 - subtitle_padding - len(subtitle)) + "║"
-        bottom_line = "╚" + "═" * (total_width - 2) + "╝"
+        top_line = "┌" + "─" * (total_width - 2) + "┐"
+        title_line = "│" + " " * title_padding + title + " " * (total_width - 2 - title_padding - len(title)) + "│"
+        subtitle_line = "│" + " " * subtitle_padding + subtitle + " " * (total_width - 2 - subtitle_padding - len(subtitle)) + "│"
+        bottom_line = "└" + "─" * (total_width - 2) + "┘"
         
         return f"{top_line}\n{title_line}\n{subtitle_line}\n{bottom_line}"
 
@@ -439,9 +439,13 @@ class FirmwareUpdateGUI(QWidget):
         
         # Add animation bar at the current position
         if 0 <= position < len(line_chars):
-            # Create gradient effect
+            # Create gradient effect based on direction
             for i, char in enumerate(bar_chars):
-                pos = position - i
+                if self.animation_direction > 0:
+                    pos = position - i  # Moving right, tail is to the left
+                else:
+                    pos = position + i  # Moving left, tail is to the right
+
                 if 0 <= pos < len(line_chars) and line_chars[pos] == ' ':
                     line_chars[pos] = char
         
@@ -660,7 +664,6 @@ However, modifications may be dangerous and illegal.</p>
 <ul>
 <li>May void your warranty</li>
 <li>May violate local laws and regulations</li>
-<li>Can bypass manufacturer safety features - serious injury risk</li>
 <li>Modified devices may be illegal to operate</li>
 <li>YOU assume ALL liability for injuries, accidents, and legal consequences</li>
 </ul>

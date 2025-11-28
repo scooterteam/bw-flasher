@@ -20,7 +20,7 @@
 
 from io import BytesIO
 import zipfile
-import fasttea
+
 
 def find_pattern_offsets(pattern_hex, binary_data, start_offset=0):
     offsets = []
@@ -75,6 +75,7 @@ def process_firmware(firmware_data: bytes) -> bytes:
     # Decryption logic, similar to Zippy's
     if not _decode_model(processed_fw):
         try:
+            import fasttea
             decrypted_fw = fasttea.decrypt(processed_fw)
             if _decode_model(decrypted_fw):
                 processed_fw = decrypted_fw

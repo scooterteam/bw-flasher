@@ -46,6 +46,12 @@ QLineEdit#filePath {
 
 QPushButton#browseButton {
     min-width: 80px;
+    max-width: 80px;
+}
+
+QPushButton#refreshButton {
+    min-width: 80px;
+    max-width: 80px;
 }
 
 QPushButton#testButton, QPushButton#startButton {

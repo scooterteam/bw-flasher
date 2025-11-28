@@ -240,7 +240,6 @@ class FirmwareUpdateGUI(QWidget):
         self.heading_label.setAlignment(Qt.AlignCenter)
         self.heading_label.setObjectName("titleLabel")
         # Set monospace font for proper ASCII art alignment
-        from PySide6.QtGui import QFont
         monospace_font = QFont("monospace", 10)
         monospace_font.setStyleHint(QFont.Monospace)
         self.heading_label.setFont(monospace_font)

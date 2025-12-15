@@ -222,25 +222,34 @@ class LeqiFlasher(BaseFlasher):
         self.emit_progress(100)
 
     def test_connection(self):
-        """Test connection to LEQI controller"""
+        """Test connection to LEQI controller by sending a DeviceInfo command."""
         if self.simulation:
             self.log("Simulation mode - testing LEQI protocol")
             self.emit_status("Simulating connection test...")
 
-            # Simulate sending a test packet
-            test_packet = bytearray([0x5A, 0x12, 0x03, 0x06, 0x31, 0x00, 0x00, 0x10, 0x00, 0x00])
-            crc = self.crc16_standard(test_packet)
-            test_packet.extend(struct.pack('>H', crc))
+            # Simulate sending a DeviceInfo packet
+            test_packet_data = bytearray([0x5A, 0x12, 0x02, 0x00])
+            crc = self.crc16_standard(test_packet_data)
+            test_packet = test_packet_data + bytearray(struct.pack('>H', crc))
 
             tx_hex = ' '.join(f'{b:02X}' for b in test_packet)
             self.debug_log(f"TX (simulated): {tx_hex}")
 
-            # Simulate response
-            response = bytes([0x5A, 0x21, 0x03, 0x01, 0x01, 0x68, 0x26])
+            # Simulate DeviceInfo response
+            # MCU Version: 0120, HW Version: 0.1.0.0, Region: EU1
+            response_data = bytearray([0x5A, 0x21, 0x02, 0x0B, 0x00, 0x01, 0x02, 0x00, 0x00, 0x01, 0x00, 0x00, 0x45, 0x55, 0x31])
+            crc = self.crc16_standard(response_data)
+            response = response_data + bytearray(struct.pack('>H', crc))
+
             rx_hex = ' '.join(f'{b:02X}' for b in response)
             self.debug_log(f"RX (simulated): {rx_hex}")
 
-            self.log("✓ Simulation successful")
+            version_bytes = response[4:8]
+            fw_version = "".join(map(str, version_bytes))
+            region_bytes = response[12:15]
+            region = region_bytes.decode('ascii', errors='ignore')
+
+            self.log(f"✓ Simulation successful. Controller firmware version: {fw_version}, Region: {region}")
             self.emit_progress(100)
             return
 
@@ -248,13 +257,43 @@ class LeqiFlasher(BaseFlasher):
             self.serial_conn = serial.Serial(
                 port=self.tty_port,
                 baudrate=19200,
-                timeout=1.0
+                bytesize=serial.EIGHTBITS,
+                parity=serial.PARITY_NONE,
+                stopbits=serial.STOPBITS_ONE,
+                timeout=2.0
             )
-            self.log(f"✓ Successfully opened port: {self.tty_port}")
-            self.serial_conn.close()
+            self.log(f"Serial port opened: {self.tty_port} @ 19200 baud")
+
+            # Build DeviceInfo packet (0x02)
+            packet_data = bytearray([0x5A, 0x12, 0x02, 0x00])
+            crc = self.crc16_standard(packet_data)
+            packet = packet_data + bytearray(struct.pack('>H', crc))
+
+            response = self._send_and_receive(packet, "DeviceInfo", expected_len=17)
+
+            if not response or len(response) < 15 or response[1] != 0x21 or response[2] != 0x02:
+                raise FlasherException("Connection test failed: Invalid or no response from controller.")
+
+            # Parse and display firmware version and region
+            version_bytes = response[4:8]
+            fw_version = "".join(map(str, version_bytes))
+            region_bytes = response[12:15]
+            region = region_bytes.decode('ascii', errors='ignore')
+
+            self.log(f"✓ Connection successful. Controller firmware version: {fw_version}, Region: {region}")
             self.emit_progress(100)
+
         except SerialException as e:
             raise FlasherException(f"Connection test failed: {e}")
+        except FlasherException as e:
+            # Re-raise to propagate specific error messages
+            raise e
+        except Exception as e:
+            raise FlasherException(f"An unexpected error occurred during connection test: {e}")
+        finally:
+            if self.serial_conn and self.serial_conn.is_open:
+                self.serial_conn.close()
+                self.log("Serial port closed.")
 
     @staticmethod
     def detect_firmware_type(firmware_data: bytes) -> FirmwareType:

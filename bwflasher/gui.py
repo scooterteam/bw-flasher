@@ -316,6 +316,10 @@ class FirmwareUpdateGUI(QWidget):
         layout_h.addWidget(self.start_button)
         layout.addLayout(layout_h)
 
+        # Disable buttons until firmware is selected
+        self.test_button.setEnabled(False)
+        self.start_button.setEnabled(False)
+
         # Progress bar
         self.progress_bar = QProgressBar()
         self.progress_bar.setObjectName("progressBar")
@@ -490,7 +494,13 @@ class FirmwareUpdateGUI(QWidget):
 
     def on_firmware_file_changed(self, file_path):
         """Called when firmware file path changes"""
-        if file_path and os.path.exists(file_path):
+        is_valid = file_path and os.path.exists(file_path)
+
+        # Enable/disable buttons based on file validity
+        self.test_button.setEnabled(is_valid)
+        self.start_button.setEnabled(is_valid)
+
+        if is_valid:
             self.update_firmware_type_label(file_path)
         else:
             self.firmware_type_label.setText("Firmware Type: Unknown")
@@ -593,8 +603,9 @@ class FirmwareUpdateGUI(QWidget):
         simulation = self.simulation_checkbox.isChecked()
         self.flasher_debug = self.debug_checkbox.isChecked()
         com_port = self.com_port.currentText()
+        firmware_file = self.file_path.text()
 
-        self.update_thread = TestConnectionThread(com_port, None, simulation, self.flasher_debug)
+        self.update_thread = TestConnectionThread(com_port, firmware_file, simulation, self.flasher_debug)
         self.start_thread()
 
     def start_update(self):

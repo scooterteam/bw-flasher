@@ -80,9 +80,6 @@ class LeqiFlasher(BaseFlasher):
         if len(self.fw) > self.FIRMWARE_SIZE:
             self.encrypted_fw = self.extract_firmware_from_image(self.fw)
 
-        with open('tmp.bin', 'wb') as f:
-            f.write(self.encrypted_fw)
-
         self.fw_size = self.calculate_firmware_size(self.encrypted_fw)
 
         self.log(f"Loaded LEQI firmware: {len(self.fw)} bytes")

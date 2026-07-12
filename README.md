@@ -88,6 +88,16 @@ python -m bwflasher.gui
 
 The GUI will automatically detect firmware type (Brightway or LEQI) when you select a file and display it with a color-coded label.
 
+### Set BLE serial number
+
+`scripts/set_serialnumber.py` writes the product serial number to the dashboard BLE module over UART (19200 baud). The serial must be exactly 19 ASCII characters:
+
+```bash
+python scripts/set_serialnumber.py /dev/ttyUSB0 "0539370000000123456"
+```
+
+Use `--list` to show available ports, or `-v` for verbose output.
+
 ## Testing
 
 Run the test suite with pytest:

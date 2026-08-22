@@ -27,7 +27,12 @@ class LeqiFlasher(BaseFlasher):
     PACKET_HEADER = b'\x5A\x12'
 
     FIRMWARE_OFFSET = 0x80      # Firmware starts at offset 128 in full image
-    FIRMWARE_SIZE = 0x9880      # Expected firmware size (39040 bytes)
+    FIRMWARE_SIZE = 0x9880      # Legacy fallback extraction window (39040 bytes)
+    HEADER_TAG = b'EU1\x00'
+    HEADER_TAG_OFFSET = 0x0A
+    HEADER_SIZE_FIELD_OFFSET = 0x0E
+    CRC_START_OFFSET = 0x40
+    MIN_FIRMWARE_SIZE = 0x42    # Minimum valid firmware body (66 bytes)
 
     def __init__(
         self,
@@ -45,23 +50,54 @@ class LeqiFlasher(BaseFlasher):
         self.session_start_time = None
 
     @classmethod
-    def extract_firmware_from_image(cls, full_image_data):
+    def parse_header_firmware_size(cls, full_image_data):
+        """
+        Read the authoritative EU1 firmware body size from a full image header.
+
+        Returns the uint16 LE size field at offset 0x0E when the EU1 tag is present
+        and the size plausibly fits within the file, otherwise None.
+        """
+        if len(full_image_data) < cls.HEADER_SIZE_FIELD_OFFSET + 2:
+            return None
+
+        if full_image_data[cls.HEADER_TAG_OFFSET:cls.HEADER_TAG_OFFSET + len(cls.HEADER_TAG)] != cls.HEADER_TAG:
+            return None
+
+        firmware_size = struct.unpack('<H', full_image_data[cls.HEADER_SIZE_FIELD_OFFSET:cls.HEADER_SIZE_FIELD_OFFSET + 2])[0]
+
+        if firmware_size < cls.MIN_FIRMWARE_SIZE:
+            return None
+
+        if len(full_image_data) < cls.FIRMWARE_OFFSET + firmware_size:
+            return None
+
+        return firmware_size
+
+    @classmethod
+    def extract_firmware_from_image(cls, full_image_data, firmware_size=None):
         """
         Extract the firmware section from a full image file.
 
         Args:
             full_image_data: Full image data (bytes or bytearray)
+            firmware_size: Optional explicit body size. When omitted, reads the EU1
+                header size if present, otherwise falls back to FIRMWARE_SIZE.
 
         Returns:
             firmware_data: The extracted firmware section
         """
-        if len(full_image_data) < cls.FIRMWARE_OFFSET + cls.FIRMWARE_SIZE:
+        if firmware_size is None:
+            firmware_size = cls.parse_header_firmware_size(full_image_data)
+        if firmware_size is None:
+            firmware_size = cls.FIRMWARE_SIZE
+
+        if len(full_image_data) < cls.FIRMWARE_OFFSET + firmware_size:
             raise ValueError(
                 f"Image too small: {len(full_image_data)} bytes. "
-                f"Expected at least {cls.FIRMWARE_OFFSET + cls.FIRMWARE_SIZE} bytes"
+                f"Expected at least {cls.FIRMWARE_OFFSET + firmware_size} bytes"
             )
 
-        firmware_data = full_image_data[cls.FIRMWARE_OFFSET:cls.FIRMWARE_OFFSET + cls.FIRMWARE_SIZE]
+        firmware_data = full_image_data[cls.FIRMWARE_OFFSET:cls.FIRMWARE_OFFSET + firmware_size]
 
         return firmware_data
 
@@ -76,14 +112,27 @@ class LeqiFlasher(BaseFlasher):
         if self.detect_firmware_type(self.fw) != FirmwareType.LEQI:
             raise FlasherException("This doesn't appear to be a LEQI firmware file")
 
-        self.encrypted_fw = self.fw
-        if len(self.fw) > self.FIRMWARE_SIZE:
-            self.encrypted_fw = self.extract_firmware_from_image(self.fw)
+        header_size = self.parse_header_firmware_size(self.fw)
+        is_full_image = len(self.fw) > self.FIRMWARE_OFFSET and (
+            header_size is not None or len(self.fw) > self.FIRMWARE_SIZE
+        )
 
-        self.fw_size = self.calculate_firmware_size(self.encrypted_fw)
+        if is_full_image:
+            self.encrypted_fw = self.extract_firmware_from_image(self.fw, header_size)
+        else:
+            self.encrypted_fw = self.fw
+
+        if header_size is not None:
+            self.fw_size = header_size
+            size_source = "header"
+        else:
+            self.fw_size = self.calculate_firmware_size(self.encrypted_fw)
+            size_source = "AA padding"
+
+        self.validate_embedded_crc(self.encrypted_fw, self.fw_size)
 
         self.log(f"Loaded LEQI firmware: {len(self.fw)} bytes")
-        self.log(f"Firmware size (AA padding end): 0x{self.fw_size:X} ({self.fw_size} bytes)")
+        self.log(f"Firmware size ({size_source}): 0x{self.fw_size:X} ({self.fw_size} bytes)")
 
     def run(self):
         """Execute the LEQI firmware flashing process"""
@@ -339,6 +388,50 @@ class LeqiFlasher(BaseFlasher):
                 else:
                     crc = (crc << 1) & 0xFFFF
         return crc & 0xFFFF
+
+    def crc16_firmware(self, data):
+        """CRC-16 with bit reversal for embedded firmware validation (poly 0x8005)"""
+        crc = 0xFFFF
+
+        for byte in data:
+            reversed_byte = self.bit_reverse_8(byte)
+            crc ^= reversed_byte << 8
+
+            for _ in range(8):
+                if crc & 0x8000:
+                    crc = ((crc << 1) ^ self.CRC16_POLY_FIRMWARE) & 0xFFFF
+                else:
+                    crc = ((crc & 0x7FFF) << 1)
+
+        return self.bit_reverse_16(crc)
+
+    def validate_embedded_crc(self, firmware_data, fw_size):
+        """Validate the embedded CRC-16 at the end of the firmware body."""
+        if fw_size < self.MIN_FIRMWARE_SIZE:
+            raise FlasherException(
+                f"Firmware too small for CRC validation: 0x{fw_size:X} bytes "
+                f"(minimum 0x{self.MIN_FIRMWARE_SIZE:X})"
+            )
+
+        if len(firmware_data) < fw_size:
+            raise FlasherException(
+                f"Firmware buffer too small: have {len(firmware_data)} bytes, "
+                f"need 0x{fw_size:X} for declared size"
+            )
+
+        embedded_crc = struct.unpack('>H', firmware_data[fw_size - 2:fw_size])[0]
+        calculated_crc = self.crc16_firmware(firmware_data[self.CRC_START_OFFSET:fw_size - 2])
+
+        if embedded_crc != calculated_crc:
+            raise FlasherException(
+                f"Embedded firmware CRC mismatch at size 0x{fw_size:X}: "
+                f"expected 0x{embedded_crc:04X}, calculated 0x{calculated_crc:04X}"
+            )
+
+        self.debug_log(
+            f"Embedded CRC validated: 0x{embedded_crc:04X} over "
+            f"[0x{self.CRC_START_OFFSET:X}:0x{fw_size - 2:X}]"
+        )
 
     def calculate_firmware_size(self, firmware_data):
         """Calculate firmware size by finding end of AA padding"""

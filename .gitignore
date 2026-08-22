@@ -148,6 +148,9 @@ dmypy.json
 # Pyre type checker
 .pyre/
 
+# Local LEQI crypto regression tests (not for upstream)
+tests/test_leqi_crypto.py
+
 # pytype static type analyzer
 .pytype/
 

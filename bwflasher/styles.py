@@ -80,6 +80,47 @@ QPushButton#testButton, QPushButton#startButton {
     font-size: 12pt;
 }
 
+QPushButton#setSerialButton {
+    min-width: 140px;
+    font-size: 12pt;
+}
+
+QTabWidget#mainTabs::pane {
+    border: 1px solid #30363d;
+    border-radius: 4px;
+    background: rgba(13, 17, 23, 0.6);
+    top: -1px;
+}
+
+QTabWidget#mainTabs QTabBar::tab {
+    background: #161b22;
+    color: #9ca3af;
+    border: 1px solid #30363d;
+    border-bottom: none;
+    border-top-left-radius: 4px;
+    border-top-right-radius: 4px;
+    padding: 6px 16px;
+    margin-right: 2px;
+    min-width: 100px;
+}
+
+QTabWidget#mainTabs QTabBar::tab:selected {
+    background: #21262d;
+    color: #0ea5e9;
+    border-color: #0ea5e9;
+}
+
+QTabWidget#mainTabs QTabBar::tab:hover:!selected {
+    color: #e6e6e6;
+    background: #1c2128;
+}
+
+QLabel#dashboardHint {
+    color: #9ca3af;
+    font-size: 10pt;
+    padding: 4px 2px;
+}
+
 QProgressBar#progressBar {
     min-height: 30px;
     font-size: 12pt;

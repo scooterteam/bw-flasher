@@ -28,7 +28,8 @@ import requests
 from serial.serialutil import SerialException
 from PySide6.QtWidgets import (
     QApplication, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QProgressBar, QFileDialog, QCheckBox, QTextEdit, QStatusBar, QComboBox, QMessageBox
+    QProgressBar, QFileDialog, QCheckBox, QTextEdit, QStatusBar, QComboBox, QMessageBox,
+    QTabWidget,
 )
 from PySide6.QtGui import QPalette, QIcon, QColor, QCursor, QPainter, QFont, QLinearGradient, QRadialGradient
 from PySide6.QtCore import Qt, QThread, Signal, QTimer
@@ -44,6 +45,11 @@ from bwflasher.serial_number import (
     send_serial_command,
     validate_serial_number,
 )
+
+SERIAL_PREFIX_LENGTH = 5
+SERIAL_SUFFIX_LENGTH = 14
+SERIAL_PREFIX_EXAMPLE = "05393"
+SERIAL_SUFFIX_EXAMPLE = "70000000ABCDEF"
 
 OS = platform.system()
 
@@ -279,18 +285,7 @@ class FirmwareUpdateGUI(QWidget):
         self.crt_scanlines.setGeometry(self.rect())
         self.crt_scanlines.raise_()
 
-        # Create banner text programmatically
-        self.heading_text = self.create_banner_text()
-        self.heading_label = QLabel(self.heading_text, self)
-        self.heading_label.setAlignment(Qt.AlignCenter)
-        self.heading_label.setObjectName("titleLabel")
-        # Set monospace font for proper ASCII art alignment
-        monospace_font = QFont("monospace", 10)
-        monospace_font.setStyleHint(QFont.Monospace)
-        self.heading_label.setFont(monospace_font)
-        layout.addWidget(self.heading_label)
-
-        # Music player controls
+        # Music player controls (above banner)
         music_layout = QHBoxLayout()
         music_layout.setSpacing(4)
         music_layout.setContentsMargins(0, 0, 0, 0)
@@ -312,12 +307,23 @@ class FirmwareUpdateGUI(QWidget):
         self.music_next_button.clicked.connect(self.next_music_track)
         music_layout.addWidget(self.music_next_button)
 
-        self.music_track_label = QLabel("Track 1/3: Original")
+        self.music_track_label = QLabel("Track 1/1: Original")
         self.music_track_label.setObjectName("musicTrackLabel")
         music_layout.addWidget(self.music_track_label, 1)
         layout.addLayout(music_layout)
 
-        # Serial port selection
+        # Create banner text programmatically
+        self.heading_text = self.create_banner_text()
+        self.heading_label = QLabel(self.heading_text, self)
+        self.heading_label.setAlignment(Qt.AlignCenter)
+        self.heading_label.setObjectName("titleLabel")
+        # Set monospace font for proper ASCII art alignment
+        monospace_font = QFont("monospace", 10)
+        monospace_font.setStyleHint(QFont.Monospace)
+        self.heading_label.setFont(monospace_font)
+        layout.addWidget(self.heading_label)
+
+        # Serial port selection (shared by Controller and Dashboard)
         layout_h = QHBoxLayout()
         layout_h.setSpacing(8)
         self.com_label = QLabel("Serial Port:")
@@ -335,39 +341,7 @@ class FirmwareUpdateGUI(QWidget):
         layout_h.addWidget(self.refresh_button)
         layout.addLayout(layout_h)
 
-        # Firmware file selection
-        layout_h = QHBoxLayout()
-        layout_h.setSpacing(8)
-        self.file_label = QLabel("Firmware File:")
-        self.file_label.setFixedWidth(100)
-        layout_h.addWidget(self.file_label)
-        self.file_path = QLineEdit()
-        self.file_path.setObjectName("filePath")
-        self.file_path.setPlaceholderText("Select firmware file...")
-        self.file_path.textChanged.connect(self.on_firmware_file_changed)
-        layout_h.addWidget(self.file_path, 1)
-        self.browse_button = QPushButton("🗃️ Browse")
-        self.browse_button.setObjectName("browseButton")
-        self.browse_button.setToolTip("Select firmware file")
-        self.browse_button.clicked.connect(self.browse_file)
-        layout_h.addWidget(self.browse_button)
-        layout.addLayout(layout_h)
-
-        # Firmware type label
-        self.firmware_type_label = QLabel("Firmware Type: Unknown")
-        self.firmware_type_label.setObjectName("firmwareTypeLabel")
-        self.firmware_type_label.setStyleSheet("""
-            QLabel#firmwareTypeLabel {
-                background-color: #2b2b2b;
-                padding: 8px 12px;
-                border-radius: 4px;
-                font-weight: bold;
-                border: 1px solid #3a3a3a;
-            }
-        """)
-        layout.addWidget(self.firmware_type_label)
-
-        # Mode selection
+        # Mode selection (shared)
         self.simulation_checkbox = QCheckBox("Simulation Mode")
         self.simulation_checkbox.setObjectName("simulationCheck")
         layout.addWidget(self.simulation_checkbox)
@@ -376,39 +350,12 @@ class FirmwareUpdateGUI(QWidget):
         self.debug_checkbox.setObjectName("debugCheck")
         layout.addWidget(self.debug_checkbox)
 
-        # Action buttons
-        layout_h = QHBoxLayout()
-        layout_h.setSpacing(12)
-        self.test_button = QPushButton("🔍 Test Connection")
-        self.test_button.setObjectName("testButton")
-        self.test_button.clicked.connect(self.test_connection)
-        layout_h.addWidget(self.test_button)
-        self.start_button = QPushButton("🚀 Start Update")
-        self.start_button.setObjectName("startButton")
-        self.start_button.clicked.connect(self.start_update)
-        layout_h.addWidget(self.start_button)
-        layout.addLayout(layout_h)
-
-        # Disable flash buttons until firmware is selected
-        self.test_button.setEnabled(False)
-        self.start_button.setEnabled(False)
-
-        # LEQI scooter serial (stored in dashboard BLE NVM; independent of firmware file)
-        layout_h = QHBoxLayout()
-        layout_h.setSpacing(8)
-        self.serial_label = QLabel("Scooter Serial (LEQI)")
-        layout_h.addWidget(self.serial_label)
-        self.serial_number_input = QLineEdit()
-        self.serial_number_input.setPlaceholderText("19-character serial")
-        self.serial_number_input.setMaxLength(SERIAL_NUMBER_LENGTH)
-        self.serial_number_input.textChanged.connect(self.on_serial_number_changed)
-        layout_h.addWidget(self.serial_number_input, 1)
-        self.set_serial_button = QPushButton("Set Serial")
-        self.set_serial_button.setObjectName("setSerialButton")
-        self.set_serial_button.setEnabled(False)
-        self.set_serial_button.clicked.connect(self.set_serial_number)
-        layout_h.addWidget(self.set_serial_button)
-        layout.addLayout(layout_h)
+        # Tabs: Controller (MCU flash) vs Dashboard (LEQI scooter serial)
+        self.tabs = QTabWidget()
+        self.tabs.setObjectName("mainTabs")
+        self.tabs.addTab(self._build_controller_tab(), "Controller")
+        self.tabs.addTab(self._build_dashboard_tab(), "Dashboard")
+        layout.addWidget(self.tabs)
 
         # Progress bar
         self.progress_bar = QProgressBar()
@@ -434,6 +381,103 @@ class FirmwareUpdateGUI(QWidget):
 
         # Set up the media player and play chiptune
         self.setup_music()
+
+    def _build_controller_tab(self):
+        """MCU firmware flash / connection test."""
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setSpacing(8)
+        layout.setContentsMargins(8, 12, 8, 8)
+
+        layout_h = QHBoxLayout()
+        layout_h.setSpacing(8)
+        self.file_label = QLabel("Firmware File:")
+        self.file_label.setFixedWidth(100)
+        layout_h.addWidget(self.file_label)
+        self.file_path = QLineEdit()
+        self.file_path.setObjectName("filePath")
+        self.file_path.setPlaceholderText("Select firmware file...")
+        self.file_path.textChanged.connect(self.on_firmware_file_changed)
+        layout_h.addWidget(self.file_path, 1)
+        self.browse_button = QPushButton("🗃️ Browse")
+        self.browse_button.setObjectName("browseButton")
+        self.browse_button.setToolTip("Select firmware file")
+        self.browse_button.clicked.connect(self.browse_file)
+        layout_h.addWidget(self.browse_button)
+        layout.addLayout(layout_h)
+
+        self.firmware_type_label = QLabel("Firmware Type: Unknown")
+        self.firmware_type_label.setObjectName("firmwareTypeLabel")
+        self.firmware_type_label.setStyleSheet("""
+            QLabel#firmwareTypeLabel {
+                background-color: #2b2b2b;
+                padding: 8px 12px;
+                border-radius: 4px;
+                font-weight: bold;
+                border: 1px solid #3a3a3a;
+            }
+        """)
+        layout.addWidget(self.firmware_type_label)
+
+        layout_h = QHBoxLayout()
+        layout_h.setSpacing(12)
+        self.test_button = QPushButton("🔍 Test Connection")
+        self.test_button.setObjectName("testButton")
+        self.test_button.clicked.connect(self.test_connection)
+        layout_h.addWidget(self.test_button)
+        self.start_button = QPushButton("🚀 Start Update")
+        self.start_button.setObjectName("startButton")
+        self.start_button.clicked.connect(self.start_update)
+        layout_h.addWidget(self.start_button)
+        layout.addLayout(layout_h)
+
+        self.test_button.setEnabled(False)
+        self.start_button.setEnabled(False)
+        layout.addStretch(1)
+        return tab
+
+    def _build_dashboard_tab(self):
+        """LEQI dashboard scooter serial (BLE NVM via UART)."""
+        tab = QWidget()
+        layout = QVBoxLayout(tab)
+        layout.setSpacing(8)
+        layout.setContentsMargins(8, 12, 8, 8)
+
+        hint = QLabel("LEQI only — sets the scooter serial stored in the dashboard BLE module.")
+        hint.setObjectName("dashboardHint")
+        hint.setWordWrap(True)
+        layout.addWidget(hint)
+
+        layout_h = QHBoxLayout()
+        layout_h.setSpacing(8)
+        self.serial_prefix_label = QLabel("Prefix:")
+        self.serial_prefix_label.setFixedWidth(70)
+        layout_h.addWidget(self.serial_prefix_label)
+        self.serial_prefix_input = QLineEdit()
+        self.serial_prefix_input.setPlaceholderText(SERIAL_PREFIX_EXAMPLE)
+        self.serial_prefix_input.setMaxLength(SERIAL_PREFIX_LENGTH)
+        self.serial_prefix_input.setToolTip(f"Prefix ({SERIAL_PREFIX_LENGTH} characters)")
+        layout_h.addWidget(self.serial_prefix_input, 1)
+        layout.addLayout(layout_h)
+
+        layout_h = QHBoxLayout()
+        layout_h.setSpacing(8)
+        self.serial_suffix_label = QLabel("Serial:")
+        self.serial_suffix_label.setFixedWidth(70)
+        layout_h.addWidget(self.serial_suffix_label)
+        self.serial_suffix_input = QLineEdit()
+        self.serial_suffix_input.setPlaceholderText(SERIAL_SUFFIX_EXAMPLE)
+        self.serial_suffix_input.setMaxLength(SERIAL_SUFFIX_LENGTH)
+        self.serial_suffix_input.setToolTip(f"Serial ({SERIAL_SUFFIX_LENGTH} characters)")
+        layout_h.addWidget(self.serial_suffix_input, 1)
+        layout.addLayout(layout_h)
+
+        self.set_serial_button = QPushButton("Set Serial")
+        self.set_serial_button.setObjectName("setSerialButton")
+        self.set_serial_button.clicked.connect(self.set_serial_number)
+        layout.addWidget(self.set_serial_button)
+        layout.addStretch(1)
+        return tab
 
     def resizeEvent(self, event):
         """Handle window resize to update effect overlays"""
@@ -470,7 +514,8 @@ class FirmwareUpdateGUI(QWidget):
         # Set text cursor for input fields
         self.file_path.setCursor(Qt.IBeamCursor)
         self.com_port.setCursor(Qt.IBeamCursor)
-        self.serial_number_input.setCursor(Qt.IBeamCursor)
+        self.serial_prefix_input.setCursor(Qt.IBeamCursor)
+        self.serial_suffix_input.setCursor(Qt.IBeamCursor)
         self.log_output.setCursor(Qt.IBeamCursor)
         
         # Set pointer cursor for clickable elements
@@ -718,20 +763,19 @@ class FirmwareUpdateGUI(QWidget):
         # Show status message
         self.status_bar.showMessage(f"Found {len(ports)} serial port(s)", 2000)
 
-    def on_serial_number_changed(self, text):
-        """Enable Set Serial when input is a valid 19-char ASCII scooter serial."""
-        try:
-            validate_serial_number(text)
-            self.set_serial_button.setEnabled(True)
-        except ValueError:
-            self.set_serial_button.setEnabled(False)
+    def _assembled_scooter_serial(self):
+        """Build the full 19-char scooter serial from prefix + serial fields."""
+        return f"{self.serial_prefix_input.text()}{self.serial_suffix_input.text()}"
 
     def set_serial_number(self):
-        serial_number = self.serial_number_input.text()
+        serial_number = self._assembled_scooter_serial()
         try:
             validate_serial_number(serial_number)
         except ValueError as e:
-            self.update_status(str(e))
+            self.update_status(
+                f"{e} (prefix {SERIAL_PREFIX_LENGTH} + serial {SERIAL_SUFFIX_LENGTH} "
+                f"= {SERIAL_NUMBER_LENGTH} characters)"
+            )
             return
 
         simulation = self.simulation_checkbox.isChecked()
@@ -772,12 +816,7 @@ class FirmwareUpdateGUI(QWidget):
         firmware_ok = bool(self.file_path.text() and os.path.exists(self.file_path.text()))
         self.test_button.setEnabled(enabled and firmware_ok)
         self.start_button.setEnabled(enabled and firmware_ok)
-        try:
-            validate_serial_number(self.serial_number_input.text())
-            serial_ok = True
-        except ValueError:
-            serial_ok = False
-        self.set_serial_button.setEnabled(enabled and serial_ok)
+        self.set_serial_button.setEnabled(enabled)
 
     def start_thread(self):
         self.update_thread.progress_signal.connect(self.update_progress)

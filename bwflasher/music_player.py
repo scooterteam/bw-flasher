@@ -14,8 +14,6 @@ from PySide6.QtMultimedia import QAudioOutput, QMediaPlayer
 
 PLAYLIST = [
     ("Original", "chiptune.mp3"),
-    ("Happy Adventure", "music/happy_adventure.mp3"),
-    ("Chippey", "music/chippey.mp3"),
 ]
 
 

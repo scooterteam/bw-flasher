@@ -132,7 +132,7 @@ The test suite includes:
 You can package the project as a standalone executable using the following command:
 
 ```bash
-pyinstaller --name="bwflasher" -i resources/app.ico --add-data "resources/*:resources" --add-data "resources/music:resources/music" --windowed --onefile bwflasher/gui.py
+pyinstaller --name="bwflasher" -i resources/app.ico --add-data "resources/*:resources" --windowed --onefile bwflasher/gui.py
 ```
 
 ## Disclaimer

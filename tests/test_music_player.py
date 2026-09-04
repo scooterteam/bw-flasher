@@ -36,4 +36,4 @@ def test_format_track_label_empty():
 
 def test_playlist_has_expected_tracks():
     titles = [title for title, _ in PLAYLIST]
-    assert titles == ["Original", "Happy Adventure", "Chippey"]
+    assert titles == ["Original"]

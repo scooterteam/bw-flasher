@@ -31,14 +31,14 @@ from PySide6.QtWidgets import (
     QProgressBar, QFileDialog, QCheckBox, QTextEdit, QStatusBar, QComboBox, QMessageBox
 )
 from PySide6.QtGui import QPalette, QIcon, QColor, QCursor, QPainter, QFont, QLinearGradient, QRadialGradient
-from PySide6.QtCore import Qt, QThread, Signal, QUrl, QTimer
-from PySide6.QtMultimedia import QMediaPlayer, QAudioOutput
+from PySide6.QtCore import Qt, QThread, Signal, QTimer
 
 from bwflasher.flash_uart import DFU, FlasherException
 from bwflasher.updater import check_update, get_name
 from bwflasher.styles import DARK_THEME_STYLESHEET, COLOR_PALETTE
 from bwflasher.version import __version__
 from bwflasher.base_flasher import detect_firmware_file, create_flasher_for_firmware, get_firmware_info, FirmwareType
+from bwflasher.music_player import ChiptunePlayer
 
 OS = platform.system()
 
@@ -244,6 +244,33 @@ class FirmwareUpdateGUI(QWidget):
         self.heading_label.setFont(monospace_font)
         layout.addWidget(self.heading_label)
 
+        # Music player controls
+        music_layout = QHBoxLayout()
+        music_layout.setSpacing(4)
+        music_layout.setContentsMargins(0, 0, 0, 0)
+        self.music_prev_button = QPushButton("⏮")
+        self.music_prev_button.setObjectName("musicPrevButton")
+        self.music_prev_button.setToolTip("Previous track")
+        self.music_prev_button.clicked.connect(self.prev_music_track)
+        music_layout.addWidget(self.music_prev_button)
+
+        self.music_play_button = QPushButton("▶")
+        self.music_play_button.setObjectName("musicPlayButton")
+        self.music_play_button.setToolTip("Play / Stop")
+        self.music_play_button.clicked.connect(self.toggle_music_playback)
+        music_layout.addWidget(self.music_play_button)
+
+        self.music_next_button = QPushButton("⏭")
+        self.music_next_button.setObjectName("musicNextButton")
+        self.music_next_button.setToolTip("Next track")
+        self.music_next_button.clicked.connect(self.next_music_track)
+        music_layout.addWidget(self.music_next_button)
+
+        self.music_track_label = QLabel("Track 1/3: Original")
+        self.music_track_label.setObjectName("musicTrackLabel")
+        music_layout.addWidget(self.music_track_label, 1)
+        layout.addLayout(music_layout)
+
         # Serial port selection
         layout_h = QHBoxLayout()
         layout_h.setSpacing(8)
@@ -389,6 +416,9 @@ class FirmwareUpdateGUI(QWidget):
         self.start_button.setCursor(Qt.PointingHandCursor)
         self.simulation_checkbox.setCursor(Qt.PointingHandCursor)
         self.debug_checkbox.setCursor(Qt.PointingHandCursor)
+        self.music_prev_button.setCursor(Qt.PointingHandCursor)
+        self.music_play_button.setCursor(Qt.PointingHandCursor)
+        self.music_next_button.setCursor(Qt.PointingHandCursor)
 
     def setup_banner_animation(self):
         """Set up Knight Rider-style banner animation"""
@@ -456,22 +486,46 @@ class FirmwareUpdateGUI(QWidget):
         return ''.join(line_chars)
 
     def setup_music(self):
-        """Set up and play the chiptune music"""
+        """Set up chiptune playlist player and auto-play first track."""
+        self.music_player = None
         try:
-            # Set up the media player
-            self.player = QMediaPlayer()
-            self.audio_output = QAudioOutput()
-            self.player.setAudioOutput(self.audio_output)
+            self.music_player = ChiptunePlayer(self)
+            self.music_player.track_changed.connect(self._on_music_track_changed)
+            self.music_player.playback_state_changed.connect(self._on_music_playback_state_changed)
+            if self.music_player.available:
+                self.music_track_label.setText(self.music_player.track_label())
+                self.music_player.start()
+            else:
+                self._set_music_controls_enabled(False)
+        except Exception:
+            self._set_music_controls_enabled(False)
 
-            # Set the file path for the tune
-            file_url = QUrl.fromLocalFile(resource_path("chiptune.mp3"))
-            self.player.setSource(file_url)
+    def _set_music_controls_enabled(self, enabled):
+        for button in (
+            self.music_prev_button,
+            self.music_play_button,
+            self.music_next_button,
+        ):
+            button.setEnabled(enabled)
 
-            # Play the audio
-            self.player.play()
-        except Exception as e:
-            # Silently handle music errors to avoid breaking the app
-            pass
+    def _on_music_track_changed(self, index, title):
+        if self.music_player:
+            self.music_track_label.setText(self.music_player.track_label())
+
+    def _on_music_playback_state_changed(self, is_playing):
+        self.music_play_button.setText("■" if is_playing else "▶")
+
+    def toggle_music_playback(self):
+        if self.music_player:
+            self.music_player.toggle_play_stop()
+
+    def next_music_track(self):
+        if self.music_player:
+            self.music_player.next_track()
+
+    def prev_music_track(self):
+        if self.music_player:
+            self.music_player.prev_track()
 
     def setup_animation(self):
         # Animation removed - kept for compatibility

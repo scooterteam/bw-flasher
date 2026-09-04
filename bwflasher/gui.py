@@ -39,6 +39,11 @@ from bwflasher.updater import check_update, get_name
 from bwflasher.styles import DARK_THEME_STYLESHEET, COLOR_PALETTE
 from bwflasher.version import __version__
 from bwflasher.base_flasher import detect_firmware_file, create_flasher_for_firmware, get_firmware_info, FirmwareType
+from bwflasher.serial_number import (
+    SERIAL_NUMBER_LENGTH,
+    send_serial_command,
+    validate_serial_number,
+)
 
 OS = platform.system()
 
@@ -151,6 +156,47 @@ class TestConnectionThread(BaseThread):
             updater.test_connection()
         except SerialException:
             self.exception_signal.emit(["Serial", "The serial connection caused an error. Is your adapter connected?"])
+        except Exception as e:
+            self.exception_signal.emit(["Unknown", str(e)])
+
+
+class SetSerialNumberThread(QThread):
+    """Set LEQI scooter serial number (stored in dashboard BLE NVM)."""
+
+    progress_signal = Signal(int)
+    status_signal = Signal(str)
+    debug_signal = Signal(str)
+    exception_signal = Signal(list)
+
+    def __init__(self, com_port, serial_number, simulation, debug, parent=None):
+        super().__init__(parent)
+        self.com_port = com_port
+        self.serial_number = serial_number
+        self.simulation = simulation
+        self.debug = debug
+
+    def run(self):
+        try:
+            mode = " (simulation)" if self.simulation else ""
+            self.status_signal.emit(f"Setting scooter serial to {self.serial_number}{mode}...")
+
+            # Always log TX/RX details for set-serial so simulation is visible
+            # without requiring the Debug checkbox (same idea as flasher simulation).
+            def log(message):
+                self.debug_signal.emit(message)
+
+            success, resp_serial, message = send_serial_command(
+                port=self.com_port,
+                serial_number=self.serial_number,
+                debug_callback=log,
+                simulation=self.simulation,
+            )
+            if success:
+                suffix = " (simulated)" if self.simulation else ""
+                self.status_signal.emit(f"Scooter serial set to '{resp_serial}'{suffix}")
+                self.progress_signal.emit(100)
+            else:
+                self.exception_signal.emit(["Serial Number", message])
         except Exception as e:
             self.exception_signal.emit(["Unknown", str(e)])
 
@@ -316,9 +362,26 @@ class FirmwareUpdateGUI(QWidget):
         layout_h.addWidget(self.start_button)
         layout.addLayout(layout_h)
 
-        # Disable buttons until firmware is selected
+        # Disable flash buttons until firmware is selected
         self.test_button.setEnabled(False)
         self.start_button.setEnabled(False)
+
+        # LEQI scooter serial (stored in dashboard BLE NVM; independent of firmware file)
+        layout_h = QHBoxLayout()
+        layout_h.setSpacing(8)
+        self.serial_label = QLabel("Scooter Serial (LEQI)")
+        layout_h.addWidget(self.serial_label)
+        self.serial_number_input = QLineEdit()
+        self.serial_number_input.setPlaceholderText("19-character serial")
+        self.serial_number_input.setMaxLength(SERIAL_NUMBER_LENGTH)
+        self.serial_number_input.textChanged.connect(self.on_serial_number_changed)
+        layout_h.addWidget(self.serial_number_input, 1)
+        self.set_serial_button = QPushButton("Set Serial")
+        self.set_serial_button.setObjectName("setSerialButton")
+        self.set_serial_button.setEnabled(False)
+        self.set_serial_button.clicked.connect(self.set_serial_number)
+        layout_h.addWidget(self.set_serial_button)
+        layout.addLayout(layout_h)
 
         # Progress bar
         self.progress_bar = QProgressBar()
@@ -380,6 +443,7 @@ class FirmwareUpdateGUI(QWidget):
         # Set text cursor for input fields
         self.file_path.setCursor(Qt.IBeamCursor)
         self.com_port.setCursor(Qt.IBeamCursor)
+        self.serial_number_input.setCursor(Qt.IBeamCursor)
         self.log_output.setCursor(Qt.IBeamCursor)
         
         # Set pointer cursor for clickable elements
@@ -387,6 +451,7 @@ class FirmwareUpdateGUI(QWidget):
         self.refresh_button.setCursor(Qt.PointingHandCursor)
         self.test_button.setCursor(Qt.PointingHandCursor)
         self.start_button.setCursor(Qt.PointingHandCursor)
+        self.set_serial_button.setCursor(Qt.PointingHandCursor)
         self.simulation_checkbox.setCursor(Qt.PointingHandCursor)
         self.debug_checkbox.setCursor(Qt.PointingHandCursor)
 
@@ -599,6 +664,34 @@ class FirmwareUpdateGUI(QWidget):
         # Show status message
         self.status_bar.showMessage(f"Found {len(ports)} serial port(s)", 2000)
 
+    def on_serial_number_changed(self, text):
+        """Enable Set Serial when input is a valid 19-char ASCII scooter serial."""
+        try:
+            validate_serial_number(text)
+            self.set_serial_button.setEnabled(True)
+        except ValueError:
+            self.set_serial_button.setEnabled(False)
+
+    def set_serial_number(self):
+        serial_number = self.serial_number_input.text()
+        try:
+            validate_serial_number(serial_number)
+        except ValueError as e:
+            self.update_status(str(e))
+            return
+
+        simulation = self.simulation_checkbox.isChecked()
+        self.flasher_debug = self.debug_checkbox.isChecked()
+        com_port = self.com_port.currentText()
+        if not simulation and not com_port:
+            self.update_status("Please select a serial port!")
+            return
+
+        self.update_thread = SetSerialNumberThread(
+            com_port, serial_number, simulation, self.flasher_debug
+        )
+        self.start_thread()
+
     def test_connection(self):
         simulation = self.simulation_checkbox.isChecked()
         self.flasher_debug = self.debug_checkbox.isChecked()
@@ -621,6 +714,17 @@ class FirmwareUpdateGUI(QWidget):
         self.update_thread = FirmwareUpdateThread(com_port, firmware_file, simulation, self.flasher_debug)
         self.start_thread()
 
+    def _set_action_buttons_enabled(self, enabled: bool):
+        firmware_ok = bool(self.file_path.text() and os.path.exists(self.file_path.text()))
+        self.test_button.setEnabled(enabled and firmware_ok)
+        self.start_button.setEnabled(enabled and firmware_ok)
+        try:
+            validate_serial_number(self.serial_number_input.text())
+            serial_ok = True
+        except ValueError:
+            serial_ok = False
+        self.set_serial_button.setEnabled(enabled and serial_ok)
+
     def start_thread(self):
         self.update_thread.progress_signal.connect(self.update_progress)
         self.update_thread.debug_signal.connect(self.debug_log)
@@ -631,12 +735,12 @@ class FirmwareUpdateGUI(QWidget):
 
         self.test_button.setEnabled(False)
         self.start_button.setEnabled(False)
+        self.set_serial_button.setEnabled(False)
 
     def update_progress(self, value):
         self.progress_bar.setValue(value)
         if value == 100:
-            self.test_button.setEnabled(True)
-            self.start_button.setEnabled(True)
+            self._set_action_buttons_enabled(True)
 
     def update_status(self, message):
         if self.flasher_debug:
@@ -656,8 +760,7 @@ class FirmwareUpdateGUI(QWidget):
         error_dialog.setWindowTitle(f"{self.window_name} - {error_type} Error")
         error_dialog.setText(message)
         error_dialog.exec()
-        self.test_button.setEnabled(True)
-        self.start_button.setEnabled(True)
+        self._set_action_buttons_enabled(True)
 
     def disclaimer_messagebox(self):
         messagebox = QMessageBox(self)

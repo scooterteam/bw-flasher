@@ -54,6 +54,27 @@ QPushButton#refreshButton {
     max-width: 80px;
 }
 
+QPushButton#musicPrevButton,
+QPushButton#musicPlayButton,
+QPushButton#musicNextButton {
+    min-width: 28px;
+    max-width: 32px;
+    min-height: 24px;
+    max-height: 26px;
+    padding: 2px 4px;
+    font-size: 9pt;
+}
+
+QLabel#musicTrackLabel {
+    color: #9ca3af;
+    font-size: 9pt;
+    padding: 2px 6px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 3px;
+    border: 1px solid #30363d;
+    max-height: 24px;
+}
+
 QPushButton#testButton, QPushButton#startButton {
     min-width: 140px;
     font-size: 12pt;

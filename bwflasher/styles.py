@@ -5,6 +5,56 @@
 # Copyright (C) 2024-2025 ScooterTeam
 #
 
+COLOR_PALETTE = {
+    'primary': '#0ea5e9',       # Fresh sky blue
+    'primary_dark': '#0284c7',  # Darker sky blue
+    'primary_light': '#38bdf8', # Lighter sky blue
+    'background': '#0d1117',    # GitHub dark
+    'surface': '#161b22',       # Surface color
+    'text': '#e6e6e6',          # Light grey text
+    'text_secondary': '#7d8590', # Muted text
+    'border': '#30363d',        # Border color
+    'error': '#f85149',         # Error color
+    'success': '#3fb950',       # Success color
+    'warning': '#d29922',       # Warning color
+    'accent': '#0ea5e9',        # Sky blue accent
+    # Firmware type label helpers (match prior inline styles)
+    'fw_ok_bg': '#1e3a1e',
+    'fw_ok_border': '#2d5a2d',
+    'fw_ok_text': '#66ff66',
+    'fw_unknown_bg': '#2b2b2b',
+    'fw_unknown_border': '#3a3a3a',
+    'fw_unknown_text': '#999999',
+    'fw_warn_bg': '#3a3a1e',
+    'fw_warn_border': '#5a5a2d',
+    'fw_warn_text': '#ffff66',
+}
+
+_P = COLOR_PALETTE
+
+
+def _firmware_type_style(bg: str, border: str, color: str) -> str:
+    return f"""
+        QLabel#firmwareTypeLabel {{
+            background-color: {bg};
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-weight: bold;
+            border: 1px solid {border};
+            color: {color};
+        }}
+    """
+
+
+FIRMWARE_TYPE_STYLES = {
+    "ok": _firmware_type_style(_P["fw_ok_bg"], _P["fw_ok_border"], _P["fw_ok_text"]),
+    "unknown": _firmware_type_style(
+        _P["fw_unknown_bg"], _P["fw_unknown_border"], _P["fw_unknown_text"]
+    ),
+    "warn": _firmware_type_style(_P["fw_warn_bg"], _P["fw_warn_border"], _P["fw_warn_text"]),
+}
+
+
 DARK_THEME_STYLESHEET = """
 /* Professional 'Terminal' Theme for BWFlasher */
 QWidget {
@@ -115,7 +165,8 @@ QTabWidget#mainTabs QTabBar::tab:hover:!selected {
     background: #1c2128;
 }
 
-QLabel#dashboardHint {
+QLabel#dashboardHint,
+QLabel#tabsHint {
     color: #9ca3af;
     font-size: 10pt;
     padding: 4px 2px;
@@ -479,19 +530,3 @@ QCheckBox#simulationCheck:checked, QCheckBox#debugCheck:checked {
     color: #0ea5e9;
 }
 """
-
-# Color palette for the application
-COLOR_PALETTE = {
-    'primary': '#0ea5e9',       # Fresh sky blue
-    'primary_dark': '#0284c7',  # Darker sky blue
-    'primary_light': '#38bdf8', # Lighter sky blue
-    'background': '#0d1117',    # GitHub dark
-    'surface': '#161b22',       # Surface color
-    'text': '#e6e6e6',          # Light grey text
-    'text_secondary': '#7d8590', # Muted text
-    'border': '#30363d',        # Border color
-    'error': '#f85149',         # Error color
-    'success': '#3fb950',       # Success color
-    'warning': '#d29922',       # Warning color
-    'accent': '#0ea5e9'         # Sky blue accent
-} 

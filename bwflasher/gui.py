@@ -31,12 +31,15 @@ from PySide6.QtWidgets import (
     QProgressBar, QFileDialog, QCheckBox, QTextEdit, QStatusBar, QComboBox, QMessageBox,
     QTabWidget,
 )
-from PySide6.QtGui import QPalette, QIcon, QColor, QCursor, QPainter, QFont, QLinearGradient, QRadialGradient
+from PySide6.QtGui import (
+    QPalette, QIcon, QColor, QCursor, QPainter, QFont, QRadialGradient,
+    QPixmap, QGuiApplication,
+)
 from PySide6.QtCore import Qt, QThread, Signal, QTimer
 
 from bwflasher.flash_uart import DFU, FlasherException
 from bwflasher.updater import check_update, get_name
-from bwflasher.styles import DARK_THEME_STYLESHEET, COLOR_PALETTE
+from bwflasher.styles import DARK_THEME_STYLESHEET, FIRMWARE_TYPE_STYLES
 from bwflasher.version import __version__
 from bwflasher.base_flasher import detect_firmware_file, create_flasher_for_firmware, get_firmware_info, FirmwareType
 from bwflasher.music_player import ChiptunePlayer
@@ -208,52 +211,62 @@ class SetSerialNumberThread(QThread):
 
 
 class CRTScanlineWidget(QWidget):
-    """CRT scanline overlay effect"""
+    """Static CRT glass overlay — no timer, paints only on resize."""
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setAttribute(Qt.WA_TransparentForMouseEvents)
         self.setAttribute(Qt.WA_TranslucentBackground)
+        self._layer = None
+        self._cache_size = None
 
-        # Scanline animation
-        self.scanline_pos = 0
-        self.timer = QTimer(self)
-        self.timer.timeout.connect(self.update_scanline)
-        self.timer.start(16)  # ~60fps
+    def set_paused(self, paused: bool):
+        """Kept for API compatibility; static overlay has nothing to pause."""
+        return
 
-    def update_scanline(self):
-        """Update scanline position"""
-        self.scanline_pos = (self.scanline_pos + 2) % self.height() if self.height() > 0 else 0
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        self._rebuild_layer()
         self.update()
 
+    def _rebuild_layer(self):
+        w, h = self.width(), self.height()
+        if w <= 0 or h <= 0:
+            self._layer = None
+            self._cache_size = None
+            return
+        if self._cache_size == (w, h) and self._layer is not None:
+            return
+
+        layer = QPixmap(w, h)
+        layer.fill(QColor(0, 0, 0, 0))
+        painter = QPainter(layer)
+        painter.setRenderHint(QPainter.Antialiasing, False)
+
+        # Soft scanlines — light enough not to muddy a mid-dark theme
+        painter.setPen(QColor(0, 0, 0, 22))
+        for y in range(0, h, 3):
+            painter.drawLine(0, y, w, y)
+
+        # Mild edge vignette (not a black hole)
+        vignette = QRadialGradient(w / 2, h / 2, max(w, h) * 0.78)
+        vignette.setColorAt(0.0, QColor(0, 0, 0, 0))
+        vignette.setColorAt(0.75, QColor(0, 0, 0, 0))
+        vignette.setColorAt(1.0, QColor(0, 0, 0, 55))
+        painter.fillRect(0, 0, w, h, vignette)
+        painter.end()
+
+        self._layer = layer
+        self._cache_size = (w, h)
+
     def paintEvent(self, event):
-        """Paint CRT scanline effect"""
+        if self._layer is None or self._cache_size != (self.width(), self.height()):
+            self._rebuild_layer()
+        if self._layer is None:
+            return
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.Antialiasing)
-
-        # Draw horizontal scanlines
-        for y in range(0, self.height(), 3):
-            painter.setPen(QColor(0, 0, 0, 30))
-            painter.drawLine(0, y, self.width(), y)
-
-        # Draw moving bright scanline
-        gradient = QLinearGradient(0, self.scanline_pos - 20, 0, self.scanline_pos + 20)
-        gradient.setColorAt(0, QColor(255, 255, 255, 0))
-        gradient.setColorAt(0.5, QColor(150, 255, 255, 40))
-        gradient.setColorAt(1, QColor(255, 255, 255, 0))
-
-        painter.fillRect(0, self.scanline_pos - 20, self.width(), 40, gradient)
-
-        # Add vignette effect
-        center_x = self.width() / 2
-        center_y = self.height() / 2
-        radius = max(self.width(), self.height())
-
-        vignette = QRadialGradient(center_x, center_y, radius)
-        vignette.setColorAt(0, QColor(0, 0, 0, 0))
-        vignette.setColorAt(0.7, QColor(0, 0, 0, 0))
-        vignette.setColorAt(1, QColor(0, 0, 0, 120))
-
-        painter.fillRect(self.rect(), vignette)
+        painter.setRenderHint(QPainter.Antialiasing, False)
+        painter.drawPixmap(0, 0, self._layer)
 
 
 class FirmwareUpdateGUI(QWidget):
@@ -334,7 +347,7 @@ class FirmwareUpdateGUI(QWidget):
         self.com_port.addItems(get_serial_ports())
         self.com_port.setObjectName("serialCombo")
         layout_h.addWidget(self.com_port, 1)
-        self.refresh_button = QPushButton("🔄 Refresh")
+        self.refresh_button = QPushButton("Refresh")
         self.refresh_button.setObjectName("refreshButton")
         self.refresh_button.setToolTip("Refresh serial ports")
         self.refresh_button.clicked.connect(self.refresh_serial_ports)
@@ -351,6 +364,14 @@ class FirmwareUpdateGUI(QWidget):
         layout.addWidget(self.debug_checkbox)
 
         # Tabs: Controller (MCU flash) vs Dashboard (LEQI scooter serial)
+        tabs_hint = QLabel(
+            "Connect the UART adapter to the motor controller or the dashboard, "
+            "matching the tab you use."
+        )
+        tabs_hint.setObjectName("tabsHint")
+        tabs_hint.setWordWrap(True)
+        layout.addWidget(tabs_hint)
+
         self.tabs = QTabWidget()
         self.tabs.setObjectName("mainTabs")
         self.tabs.addTab(self._build_controller_tab(), "Controller")
@@ -379,8 +400,22 @@ class FirmwareUpdateGUI(QWidget):
         # Set up banner animation
         self.setup_banner_animation()
 
+        # Pause CRT + banner when the app is inactive / minimized
+        app = QGuiApplication.instance()
+        if app is not None:
+            app.applicationStateChanged.connect(self._on_app_state_changed)
+
         # Set up the media player and play chiptune
         self.setup_music()
+
+    def _on_app_state_changed(self, state):
+        active = state == Qt.ApplicationActive
+        if hasattr(self, "animation_timer"):
+            if active:
+                if not self.animation_timer.isActive():
+                    self.animation_timer.start(self.animation_speed)
+            else:
+                self.animation_timer.stop()
 
     def _build_controller_tab(self):
         """MCU firmware flash / connection test."""
@@ -399,7 +434,7 @@ class FirmwareUpdateGUI(QWidget):
         self.file_path.setPlaceholderText("Select firmware file...")
         self.file_path.textChanged.connect(self.on_firmware_file_changed)
         layout_h.addWidget(self.file_path, 1)
-        self.browse_button = QPushButton("🗃️ Browse")
+        self.browse_button = QPushButton("Browse")
         self.browse_button.setObjectName("browseButton")
         self.browse_button.setToolTip("Select firmware file")
         self.browse_button.clicked.connect(self.browse_file)
@@ -408,24 +443,16 @@ class FirmwareUpdateGUI(QWidget):
 
         self.firmware_type_label = QLabel("Firmware Type: Unknown")
         self.firmware_type_label.setObjectName("firmwareTypeLabel")
-        self.firmware_type_label.setStyleSheet("""
-            QLabel#firmwareTypeLabel {
-                background-color: #2b2b2b;
-                padding: 8px 12px;
-                border-radius: 4px;
-                font-weight: bold;
-                border: 1px solid #3a3a3a;
-            }
-        """)
+        self.firmware_type_label.setStyleSheet(FIRMWARE_TYPE_STYLES["unknown"])
         layout.addWidget(self.firmware_type_label)
 
         layout_h = QHBoxLayout()
         layout_h.setSpacing(12)
-        self.test_button = QPushButton("🔍 Test Connection")
+        self.test_button = QPushButton("Test Connection")
         self.test_button.setObjectName("testButton")
         self.test_button.clicked.connect(self.test_connection)
         layout_h.addWidget(self.test_button)
-        self.start_button = QPushButton("🚀 Start Update")
+        self.start_button = QPushButton("Start Update")
         self.start_button.setObjectName("startButton")
         self.start_button.clicked.connect(self.start_update)
         layout_h.addWidget(self.start_button)
@@ -532,68 +559,55 @@ class FirmwareUpdateGUI(QWidget):
 
     def setup_banner_animation(self):
         """Set up Knight Rider-style banner animation"""
-        # Animation state
         self.animation_position = 0
         self.animation_direction = 1  # 1 for right, -1 for left
         self.animation_speed = 100  # milliseconds between updates
-        
-        # Create timer for animation
-        self.animation_timer = QTimer()
+        self._banner_base_lines = self.create_banner_text().split("\n")
+        self._banner_bar_chars = ["█", "▓", "▒"]  # short phosphor trail
+
+        self.animation_timer = QTimer(self)
         self.animation_timer.timeout.connect(self.update_banner_animation)
         self.animation_timer.start(self.animation_speed)
-        
-        # Initial animation update
+
         self.update_banner_animation()
 
     def update_banner_animation(self):
         """Update the Knight Rider-style animation"""
-        # Get the base banner text
-        base_text = self.create_banner_text()
-        lines = base_text.split('\n')
-        
-        # Animation bar characters (Knight Rider style)
-        bar_chars = ['█', '▓', '▒', '░', ' ']  # Solid to transparent
-        
-        # Calculate animation position (0 to banner width)
-        banner_width = 58
+        lines = self._banner_base_lines
+        banner_width = len(lines[0]) if lines else 58
         self.animation_position += self.animation_direction
-        
-        # Reverse direction at edges
+
         if self.animation_position >= banner_width - 1:
             self.animation_direction = -1
         elif self.animation_position <= 0:
             self.animation_direction = 1
-        
-        # Create animated banner
+
         animated_lines = []
         for i, line in enumerate(lines):
             if i == 1:  # Title line - add animation bar
-                animated_line = self.create_animated_line(line, self.animation_position, bar_chars)
-                animated_lines.append(animated_line)
+                animated_lines.append(
+                    self.create_animated_line(line, self.animation_position, self._banner_bar_chars)
+                )
             else:
                 animated_lines.append(line)
-        
-        # Update the banner text
-        self.heading_label.setText('\n'.join(animated_lines))
+
+        self.heading_label.setText("\n".join(animated_lines))
 
     def create_animated_line(self, base_line, position, bar_chars):
         """Create a line with Knight Rider-style animation bar"""
-        # Convert line to list for manipulation
         line_chars = list(base_line)
-        
-        # Add animation bar at the current position
+
         if 0 <= position < len(line_chars):
-            # Create gradient effect based on direction
             for i, char in enumerate(bar_chars):
                 if self.animation_direction > 0:
                     pos = position - i  # Moving right, tail is to the left
                 else:
                     pos = position + i  # Moving left, tail is to the right
 
-                if 0 <= pos < len(line_chars) and line_chars[pos] == ' ':
+                if 0 <= pos < len(line_chars) and line_chars[pos] == " ":
                     line_chars[pos] = char
-        
-        return ''.join(line_chars)
+
+        return "".join(line_chars)
 
     def setup_music(self):
         """Set up chiptune playlist player and auto-play first track."""
@@ -668,16 +682,7 @@ class FirmwareUpdateGUI(QWidget):
             self.update_firmware_type_label(file_path)
         else:
             self.firmware_type_label.setText("Firmware Type: Unknown")
-            self.firmware_type_label.setStyleSheet("""
-                QLabel#firmwareTypeLabel {
-                    background-color: #2b2b2b;
-                    padding: 8px 12px;
-                    border-radius: 4px;
-                    font-weight: bold;
-                    border: 1px solid #3a3a3a;
-                    color: #999999;
-                }
-            """)
+            self.firmware_type_label.setStyleSheet(FIRMWARE_TYPE_STYLES["unknown"])
 
     def update_firmware_type_label(self, file_path):
         """Update the firmware type label based on detected firmware type"""
@@ -686,65 +691,19 @@ class FirmwareUpdateGUI(QWidget):
 
             if fw_type == FirmwareType.BRIGHTWAY:
                 self.firmware_type_label.setText(f"Firmware Type: Brightway (ARM Cortex-M)")
-                self.firmware_type_label.setStyleSheet("""
-                    QLabel#firmwareTypeLabel {
-                        background-color: #1e3a1e;
-                        padding: 8px 12px;
-                        border-radius: 4px;
-                        font-weight: bold;
-                        border: 1px solid #2d5a2d;
-                        color: #66ff66;
-                    }
-                """)
+                self.firmware_type_label.setStyleSheet(FIRMWARE_TYPE_STYLES["ok"])
             elif fw_type == FirmwareType.LEQI:
                 self.firmware_type_label.setText(f"Firmware Type: LEQI (Encrypted)")
-                self.firmware_type_label.setStyleSheet("""
-                    QLabel#firmwareTypeLabel {
-                        background-color: #1e3a1e;
-                        padding: 8px 12px;
-                        border-radius: 4px;
-                        font-weight: bold;
-                        border: 1px solid #2d5a2d;
-                        color: #66ff66;
-                    }
-                """)
+                self.firmware_type_label.setStyleSheet(FIRMWARE_TYPE_STYLES["ok"])
             elif fw_type == FirmwareType.NINEBOT:
                 self.firmware_type_label.setText(f"Firmware Type: Ninebot (v{fw_info['version']})")
-                self.firmware_type_label.setStyleSheet("""
-                    QLabel#firmwareTypeLabel {
-                        background-color: #1e3a1e;
-                        padding: 8px 12px;
-                        border-radius: 4px;
-                        font-weight: bold;
-                        border: 1px solid #2d5a2d;
-                        color: #66ff66;
-                    }
-                """
-            )
+                self.firmware_type_label.setStyleSheet(FIRMWARE_TYPE_STYLES["ok"])
             else:
                 self.firmware_type_label.setText("Firmware Type: Unknown")
-                self.firmware_type_label.setStyleSheet("""
-                    QLabel#firmwareTypeLabel {
-                        background-color: #2b2b2b;
-                        padding: 8px 12px;
-                        border-radius: 4px;
-                        font-weight: bold;
-                        border: 1px solid #3a3a3a;
-                        color: #999999;
-                    }
-                """)
+                self.firmware_type_label.setStyleSheet(FIRMWARE_TYPE_STYLES["unknown"])
         except Exception as e:
             self.firmware_type_label.setText(f"Firmware Type: Error ({str(e)})")
-            self.firmware_type_label.setStyleSheet("""
-                QLabel#firmwareTypeLabel {
-                    background-color: #3a3a1e;
-                    padding: 8px 12px;
-                    border-radius: 4px;
-                    font-weight: bold;
-                    border: 1px solid #5a5a2d;
-                    color: #ffff66;
-                }
-            """)
+            self.firmware_type_label.setStyleSheet(FIRMWARE_TYPE_STYLES["warn"])
 
     def refresh_serial_ports(self):
         """Refresh the list of available serial ports"""

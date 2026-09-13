@@ -18,6 +18,7 @@ from enum import Enum
 from bwflasher.base_flasher import BaseFlasher, FlasherException, FirmwareType
 from bwflasher.utils import find_pattern_offsets
 from bwflasher.keygen import sign_rand
+from bwflasher.xmodem import build_frame, crc16_xmodem as calculate_crc16
 
 
 class DFUState(Enum):
@@ -34,11 +35,6 @@ class DFUState(Enum):
     DFU_ACTIVE = "DFU_ACTIVE"
     VER_DONE = "VER_DONE"
     DONE = "DONE"
-
-
-def calculate_crc16(data: bytearray) -> int:
-    """Calculate CRC16 for the given data."""
-    return binascii.crc_hqx(data, 0x0)
 
 
 def calculate_crc32(data: bytearray) -> int:
@@ -133,15 +129,8 @@ class BrightwayFlasher(BaseFlasher):
 
         return FirmwareType.UNKNOWN
 
-    def emit_state(self, state_text):
-        if self.prev_state != self.state:
-            self.emit_status(state_text)
-        self.prev_state = self.state
-
     def emit_progress_internal(self):
-        if self.progress_callback:
-            perc = int(self.n_packets_sent / self.total_packets * 100)
-            self.emit_progress(perc)
+        self.emit_progress_fraction(self.n_packets_sent, self.total_packets)
 
     def run(self):
         while self.state != DFUState.DONE:
@@ -293,10 +282,7 @@ class BrightwayFlasher(BaseFlasher):
                 chunk_end = chunk_start + self.CHUNK_SIZE
                 data_chunk = self.packet[chunk_start:chunk_end]
 
-                N = (n + 1).to_bytes(1, 'big')
-                N_ = (0xFF - (n + 1)).to_bytes(1, 'big')
-                crc16 = calculate_crc16(data_chunk).to_bytes(2, 'big')
-                packet = b'\x01' + N + N_ + data_chunk + crc16
+                packet = build_frame(n + 1, data_chunk)
 
                 for repeat in range(self.MAX_REPEATS):
                     self.send(packet)

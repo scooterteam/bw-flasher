@@ -17,7 +17,7 @@ from bwflasher.base_flasher import BaseFlasher, FlasherException, FirmwareType
 
 
 class LeqiFlasher(BaseFlasher):
-    """Flasher for LEQI scooter firmware (encrypted with XOR 0xAA)"""
+    """Flasher for LEQI scooter firmware (XOR 0xAA wire image, or plaintext e.g. 5 Plus)."""
 
     # Constants from reverse engineering
     ENCRYPTION_KEY = 0xAA
@@ -33,6 +33,10 @@ class LeqiFlasher(BaseFlasher):
     HEADER_SIZE_FIELD_OFFSET = 0x0E
     CRC_START_OFFSET = 0x40
     MIN_FIRMWARE_SIZE = 0x42    # Minimum valid firmware body (66 bytes)
+    # Elite XOR bodies are ~8–10% 0xAA in this window; 5 Plus plaintext ~0.1%.
+    PLAINTEXT_AA_DENSITY_MAX = 0.02
+    PLAINTEXT_AA_SAMPLE_START = 0x80
+    PLAINTEXT_AA_SAMPLE_END = 0x400
 
     def __init__(
         self,
@@ -47,7 +51,29 @@ class LeqiFlasher(BaseFlasher):
         self.serial_conn = None
         self.encrypted_fw = None
         self.fw_size = 0
+        self.plaintext_body = False
         self.session_start_time = None
+
+    @classmethod
+    def is_plaintext_leqi_body(cls, firmware_data) -> bool:
+        """True when EU1 body lacks XOR-0xAA density (5 Plus-style plaintext)."""
+        data = bytes(firmware_data)
+        if not data:
+            return False
+        start = min(cls.PLAINTEXT_AA_SAMPLE_START, len(data))
+        end = min(cls.PLAINTEXT_AA_SAMPLE_END, len(data))
+        sample = data[start:end] if end > start else data
+        if not sample:
+            return False
+        return (sample.count(cls.ENCRYPTION_KEY) / len(sample)) < cls.PLAINTEXT_AA_DENSITY_MAX
+
+    def embedded_crc_ok(self, firmware_data, fw_size) -> bool:
+        """True when Elite-style embedded BE CRC over [0x40:size-2] matches."""
+        if fw_size < self.MIN_FIRMWARE_SIZE or len(firmware_data) < fw_size:
+            return False
+        embedded_crc = struct.unpack('>H', bytes(firmware_data[fw_size - 2:fw_size]))[0]
+        calculated_crc = self.crc16_firmware(firmware_data[self.CRC_START_OFFSET:fw_size - 2])
+        return embedded_crc == calculated_crc
 
     @classmethod
     def parse_header_firmware_size(cls, full_image_data):
@@ -102,13 +128,12 @@ class LeqiFlasher(BaseFlasher):
         return firmware_data
 
     def load_file(self, firmware_file: str):
-        """Load and validate LEQI firmware file"""
+        """Load and validate LEQI firmware file (XOR body with CRC, or plaintext)."""
         self.debug_log(f"Loading LEQI firmware file: {firmware_file}")
 
         with open(firmware_file, 'rb') as f:
             self.fw = f.read()
 
-        # Check if it's encrypted firmware (should have 0xAA patterns)
         if self.detect_firmware_type(self.fw) != FirmwareType.LEQI:
             raise FlasherException("This doesn't appear to be a LEQI firmware file")
 
@@ -129,7 +154,16 @@ class LeqiFlasher(BaseFlasher):
             self.fw_size = self.calculate_firmware_size(self.encrypted_fw)
             size_source = "AA padding"
 
-        self.validate_embedded_crc(self.encrypted_fw, self.fw_size)
+        self.plaintext_body = False
+        if self.embedded_crc_ok(self.encrypted_fw, self.fw_size):
+            self.validate_embedded_crc(self.encrypted_fw, self.fw_size)
+        elif self.is_plaintext_leqi_body(self.encrypted_fw):
+            self.plaintext_body = True
+            self.log(
+                "Plaintext LEQI body: skipping embedded CRC (5 Plus-style)"
+            )
+        else:
+            self.validate_embedded_crc(self.encrypted_fw, self.fw_size)
 
         self.log(f"Loaded LEQI firmware: {len(self.fw)} bytes")
         self.log(f"Firmware size ({size_source}): 0x{self.fw_size:X} ({self.fw_size} bytes)")
@@ -343,23 +377,20 @@ class LeqiFlasher(BaseFlasher):
 
     @staticmethod
     def detect_firmware_type(firmware_data: bytes) -> FirmwareType:
-        """Detect if firmware is LEQI type (encrypted with 0xAA)"""
-        if len(firmware_data) < 0x400:
+        """Detect if firmware is LEQI type (EU1 header tag)."""
+        if len(firmware_data) < LeqiFlasher.HEADER_SIZE_FIELD_OFFSET + 2:
             return FirmwareType.UNKNOWN
 
-        # Check for LEQI firmware (encrypted with 0xAA)
-        # Look for the characteristic "aa a2" pattern (0xAA XORed address in little-endian)
-        # and high concentration of 0xAA bytes
-        aa_a2_pattern = b'\xaa\xa2'
-        aa_a2_count = firmware_data[0x80:0x400].count(aa_a2_pattern)
-        aa_count = firmware_data[0x80:0x400].count(0xAA)
+        tag = firmware_data[
+            LeqiFlasher.HEADER_TAG_OFFSET:LeqiFlasher.HEADER_TAG_OFFSET + len(LeqiFlasher.HEADER_TAG)
+        ]
+        if tag != LeqiFlasher.HEADER_TAG:
+            return FirmwareType.UNKNOWN
 
-        # LEQI encrypted firmware has many "aa a2" patterns (encrypted pointers)
-        # and overall high 0xAA byte concentration
-        if aa_a2_count > 10 and aa_count > 50:
-            return FirmwareType.LEQI
+        if LeqiFlasher.parse_header_firmware_size(firmware_data) is None:
+            return FirmwareType.UNKNOWN
 
-        return FirmwareType.UNKNOWN
+        return FirmwareType.LEQI
 
     def bit_reverse_8(self, value):
         """Reverse bits in an 8-bit value"""

@@ -57,6 +57,8 @@ class BaseFlasher(ABC):
         self.progress_callback = progress_callback
         self.log_callback = log_callback
         self.fw = None
+        self.state = None
+        self.prev_state = None
 
     @abstractmethod
     def load_file(self, firmware_file: str):
@@ -99,6 +101,17 @@ class BaseFlasher(ABC):
         """Emit status update"""
         if self.status_callback:
             self.status_callback(status_text)
+
+    def emit_state(self, state_text: str):
+        """Emit status when protocol state changed since the last call."""
+        if self.prev_state != self.state:
+            self.emit_status(state_text)
+        self.prev_state = self.state
+
+    def emit_progress_fraction(self, done: int, total: int):
+        """Emit progress as a percentage of completed work."""
+        if self.progress_callback and total:
+            self.emit_progress(min(100, int(done / total * 100)))
 
 def _get_flasher_classes():
     from bwflasher.brightway_flasher import BrightwayFlasher
@@ -149,9 +162,24 @@ def get_firmware_info(firmware_data: bytes) -> Tuple[FirmwareType, dict]:
         info['protocol'] = "DFU (Device Firmware Update)"
 
     elif fw_type == FirmwareType.LEQI:
-        aa_a2_count = data[0x80:0x400].count(b'\xaa\xa2')
-        aa_count = data[0x80:0x400].count(0xAA)
-        info['encryption'] = "XOR 0xAA"
+        from bwflasher.leqi_flasher import LeqiFlasher
+
+        header_size = LeqiFlasher.parse_header_firmware_size(data)
+        if header_size is not None and len(data) >= LeqiFlasher.FIRMWARE_OFFSET + header_size:
+            body = data[LeqiFlasher.FIRMWARE_OFFSET:LeqiFlasher.FIRMWARE_OFFSET + header_size]
+        else:
+            body = data[LeqiFlasher.FIRMWARE_OFFSET:] if len(data) > LeqiFlasher.FIRMWARE_OFFSET else data
+
+        aa_sample = body[
+            LeqiFlasher.PLAINTEXT_AA_SAMPLE_START:LeqiFlasher.PLAINTEXT_AA_SAMPLE_END
+        ] if len(body) > LeqiFlasher.PLAINTEXT_AA_SAMPLE_START else body
+        aa_a2_count = aa_sample.count(b'\xaa\xa2')
+        aa_count = aa_sample.count(0xAA)
+        info['encryption'] = (
+            "none (plaintext)"
+            if LeqiFlasher.is_plaintext_leqi_body(body)
+            else "XOR 0xAA"
+        )
         info['aa_a2_pattern_count'] = aa_a2_count
         info['aa_byte_count'] = aa_count
         info['protocol'] = "Binary packets (5A 12 header)"

@@ -20,7 +20,8 @@
 
 # Backward compatibility - import from new modules
 from bwflasher.base_flasher import FlasherException, FirmwareType
-from bwflasher.brightway_flasher import BrightwayFlasher, DFUState, calculate_crc16, calculate_crc32
+from bwflasher.brightway_flasher import BrightwayFlasher, DFUState, calculate_crc32
+from bwflasher.xmodem import crc16_xmodem as calculate_crc16
 
 # Alias for backward compatibility
 DFU = BrightwayFlasher
